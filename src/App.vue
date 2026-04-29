@@ -1,10 +1,17 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { DotLottieVue } from '@lottiefiles/dotlottie-vue'
-import { AlertTriangle, ArrowRight, BookOpen, LifeBuoy, ShieldCheck } from 'lucide-vue-next'
+import { ArrowRight, BookOpen, LifeBuoy, ShieldCheck } from 'lucide-vue-next'
 import ResultPanel from './components/ResultPanel.vue'
 import SubmissionPanel from './components/SubmissionPanel.vue'
-import { analyzeTextContentByBackend, extractTextFromSubmission, lookupAbnByBackend } from './services/scamAnalysisEngine'
+import ScamSimulation from './components/ScamSimulation.vue'
+import ScamTypeQuiz from './components/ScamTypeQuiz.vue'
+import {
+  analyzeTextContentByBackend,
+  extractTextFromSubmission,
+  lookupAbnByBackend,
+} from './services/scamAnalysisEngine'
+import { scamTypeMeta } from './constants/scamSimulationData'
 
 const isAnalyzing = ref(false)
 const result = ref(null)
@@ -74,6 +81,14 @@ const primarySections = [
   { label: 'Insights', id: 'insights-section' },
   { label: 'Learn', id: 'learn-section' },
   { label: 'Support', id: 'support-section' },
+]
+
+const learnScenarioOptions = [
+  { key: 'task_based', label: 'Task-based job scam', icon: '📋' },
+  { key: 'phishing', label: 'Phishing recruiter scam', icon: '🎣' },
+  { key: 'financial_fraud', label: 'Fake payroll / upfront fee scam', icon: '💸' },
+  { key: 'identity_scam', label: 'Identity document harvesting scam', icon: '🪪' },
+  { key: 'investment', label: 'Job-to-investment hybrid scam', icon: '📈' },
 ]
 
 const quickTips = [
@@ -203,9 +218,9 @@ const footerFriendLinks = [
 
 const footerProductLinks = [
   { label: 'Home', href: '#home-section' },
-  { label: 'Check Scam', href: '#check-section' },
+  { label: 'Check Scam', href: '#check-scam-panel' },
   { label: 'Insights', href: '#insights-section' },
-  { label: 'Learn', href: '#learn-section' },
+  { label: 'Learn', href: '#learn-core-anchor' },
   { label: 'Support', href: '#support-section' },
 ]
 
@@ -214,12 +229,92 @@ const footerLegalLinks = [
   { label: 'Terms', href: '#' },
 ]
 
+const learnScamType = ref('task_based')
+const learnStep = ref('entry')
+const learnCompletion = ref({})
+const learnSectionRef = ref(null)
+const learnQuizResult = ref(null)
+
+const learnMeta = computed(
+  () => scamTypeMeta[learnScamType.value] || { label: 'Unknown', tone: '' },
+)
+
+function handleQuizComplete(payload) {
+  if (!payload?.type) return
+  learnScamType.value = payload.type
+  learnQuizResult.value = payload
+  learnStep.value = 'quiz_result'
+  persistLearnState({ step: 'quiz_result', scamType: payload.type, quizResult: payload })
+  scrollToLearn()
+}
+
+function persistLearnState(update) {
+  try {
+    const current = JSON.parse(localStorage.getItem('stepsafe_learn_state') || '{}')
+    const next = { ...current, scamType: learnScamType.value, ...update }
+    localStorage.setItem('stepsafe_learn_state', JSON.stringify(next))
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function loadLearnState() {
+  try {
+    const state = JSON.parse(localStorage.getItem('stepsafe_learn_state') || '{}')
+    if (state?.scamType) learnScamType.value = state.scamType
+    if (state?.quizResult) learnQuizResult.value = state.quizResult
+    if (state?.step === 'walkthrough') learnStep.value = 'walkthrough'
+    else if (state?.step) learnStep.value = state.step
+    if (state?.completedByType) learnCompletion.value = state.completedByType
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function scrollToLearn() {
+  const anchor = document.getElementById('learn-core-anchor')
+  if (!(anchor instanceof HTMLElement)) return
+  const header = document.querySelector('.top-strip')
+  const headerHeight = header instanceof HTMLElement ? header.offsetHeight : 0
+  const top = anchor.getBoundingClientRect().top + window.scrollY - headerHeight
+  window.scrollTo({ top, behavior: 'smooth' })
+}
+
+function startLearnQuiz() {
+  learnStep.value = 'quiz'
+  persistLearnState({ step: 'quiz' })
+  scrollToLearn()
+}
+
+function startWalkthroughDirectly() {
+  learnQuizResult.value = null
+  learnStep.value = 'walkthrough'
+  persistLearnState({ step: 'walkthrough', quizResult: null })
+  scrollToLearn()
+}
+
+function openWalkthroughFromQuiz() {
+  learnStep.value = 'walkthrough'
+  persistLearnState({ step: 'walkthrough' })
+  scrollToLearn()
+}
+
+function backToWorkflowChoice() {
+  learnStep.value = 'entry'
+  persistLearnState({ step: 'entry' })
+  scrollToLearn()
+}
+
 const showResult = computed(() => result.value !== null)
 
 let revealObserver = null
 
 function scrollToSection(sectionId) {
-  const node = document.getElementById(sectionId)
+  const remap = {
+    'learn-section': 'learn-core-anchor',
+    'check-section': 'check-scam-panel',
+  }
+  const node = document.getElementById(remap[sectionId] || sectionId)
   if (!node) return
 
   const header = document.querySelector('.top-strip')
@@ -236,6 +331,11 @@ function scrollToSection(sectionId) {
     NAV_SCROLL_GAP
 
   window.scrollTo({ top, behavior: 'smooth' })
+}
+
+function setLearnScenario(typeKey) {
+  learnScamType.value = typeKey
+  persistLearnState({ scamType: typeKey })
 }
 
 function navigateToSection(sectionId) {
@@ -585,6 +685,7 @@ onMounted(() => {
   initHeroParticles()
   initRevealObserver()
   initStatsObserver()
+  loadLearnState()
   updateSnapStageMotion()
   window.addEventListener('keydown', handleGlobalKeydown)
   window.addEventListener('scroll', handleWindowScroll, { passive: true })
@@ -746,6 +847,17 @@ function confirmAbn(record) {
             Home
           </button>
           <button
+            type="button"
+            class="top-nav-link"
+            :class="{
+              'top-nav-link--active':
+                activeNavId === CHECK_SCAM_TARGET_ID || activeNavId === 'check-section',
+            }"
+            @click="goToCheckScam"
+          >
+            Check scam
+          </button>
+          <button
             v-for="section in primarySections"
             :key="`desktop-${section.id}`"
             type="button"
@@ -754,17 +866,6 @@ function confirmAbn(record) {
             @click="navigateToSection(section.id)"
           >
             {{ section.label }}
-          </button>
-          <button
-            type="button"
-            class="top-nav-cta"
-            :class="{
-              'top-nav-cta--active':
-                activeNavId === CHECK_SCAM_TARGET_ID || activeNavId === 'check-section',
-            }"
-            @click="goToCheckScam"
-          >
-            Check scam
           </button>
         </nav>
 
@@ -794,9 +895,7 @@ function confirmAbn(record) {
             </button>
 
             <div class="menu-group">
-              <button type="button" class="menu-link menu-link--check" @click="goToCheckScam">
-                Check Scam
-              </button>
+              <button type="button" class="menu-link" @click="goToCheckScam">Check Scam</button>
               <div class="menu-subactions" role="group" aria-label="Check scam quick actions">
                 <button
                   v-for="action in topActions"
@@ -1129,42 +1228,93 @@ function confirmAbn(record) {
         id="learn-section"
         class="panel snap-stage section-b section-fade section-fade--learn reveal-on-scroll"
         aria-label="Learn section"
+        ref="learnSectionRef"
       >
         <div class="container-shell">
-          <h2 class="section-title">Learn</h2>
-          <p class="section-copy copy-block">
-            Learn common scripts used in fake employment outreach and how to challenge them.
-          </p>
-          <div class="preview-placeholder" role="status" aria-live="polite">
-            <div class="feature-preview-grid" role="status" aria-live="polite">
-              <article
-                class="feature-preview feature-preview--learn reveal-on-scroll reveal-fade-up"
-                style="--reveal-delay: 0ms"
-              >
-                <BookOpen :size="48" aria-hidden="true" />
-                <h3>Script breakdowns</h3>
-                <span>Coming in Iteration 2</span>
-              </article>
-              <article
-                class="feature-preview feature-preview--learn reveal-on-scroll reveal-fade-up"
-                style="--reveal-delay: 120ms"
-              >
-                <ShieldCheck :size="48" aria-hidden="true" />
-                <h3>Scam timeline maps</h3>
-                <span>Coming in Iteration 2</span>
-              </article>
-              <article
-                class="feature-preview feature-preview--learn reveal-on-scroll reveal-fade-up"
-                style="--reveal-delay: 240ms"
-              >
-                <AlertTriangle :size="48" aria-hidden="true" />
-                <h3>Phrase libraries</h3>
-                <span>Coming in Iteration 2</span>
-              </article>
+          <div id="learn-core-anchor" class="learn-hero">
+            <div class="learn-hero__icon" aria-hidden="true">
+              <img src="https://img.icons8.com/cotton/64/combo-chart--v1.png" alt="" />
             </div>
-            <p class="feature-preview-note">
-              <em>Scam scripts and tactics - arriving in Iteration 2</em>
-            </p>
+            <div class="learn-hero__content">
+              <p class="learn-hero__eyebrow">Core workflow</p>
+              <h3>Scam Progression Simulator</h3>
+              <p>
+                Explore real-world scam scripts and practice safe decisions in a guided simulator.
+              </p>
+            </div>
+          </div>
+
+          <div class="learn-flow">
+            <div v-if="learnStep === 'entry'" class="learn-entry">
+              <h4>What would you like to do?</h4>
+              <p class="learn-entry__intro">
+                Choose a scam scenario first, then either jump into walkthrough or run a quick type
+                check.
+              </p>
+              <div class="learn-scenario-grid" role="list" aria-label="Scam scenario options">
+                <button
+                  v-for="option in learnScenarioOptions"
+                  :key="option.key"
+                  type="button"
+                  class="scenario-chip"
+                  :class="{ 'scenario-chip--active': learnScamType === option.key }"
+                  @click="setLearnScenario(option.key)"
+                >
+                  <span class="scenario-chip__label">
+                    <i aria-hidden="true">{{ option.icon }}</i>
+                    <b>{{ option.label }}</b>
+                  </span>
+                </button>
+              </div>
+              <button
+                class="learn-primary learn-primary--full"
+                type="button"
+                @click="startWalkthroughDirectly"
+              >
+                Walk through a scam scenario →
+              </button>
+              <button
+                class="learn-secondary learn-secondary--full"
+                type="button"
+                @click="startLearnQuiz"
+              >
+                Check what type of scam this is first
+              </button>
+            </div>
+
+            <div v-else-if="learnStep === 'quiz'" class="learn-quiz-only">
+              <ScamTypeQuiz @complete="handleQuizComplete" />
+              <button
+                class="learn-secondary learn-secondary--full learn-skip-link"
+                type="button"
+                @click="startWalkthroughDirectly"
+              >
+                Skip to walkthrough →
+              </button>
+            </div>
+
+            <div v-else-if="learnStep === 'quiz_result'" class="learn-quiz-complete">
+              <p class="learn-cover__eyebrow">Scam Type Finder result</p>
+              <h3>{{ learnMeta.label }}</h3>
+              <p>{{ learnMeta.tone }}</p>
+              <button
+                class="learn-primary learn-primary--full"
+                type="button"
+                @click="openWalkthroughFromQuiz"
+              >
+                See how this scam works — start walkthrough →
+              </button>
+            </div>
+
+            <ScamSimulation
+              v-else
+              :scenario-type="learnScamType"
+              :detected-label="learnMeta.label"
+              :detected-tone="learnMeta.tone"
+              :show-detected-result="!!learnQuizResult"
+              @restart="backToWorkflowChoice"
+              @exit="backToWorkflowChoice"
+            />
           </div>
         </div>
       </section>
@@ -1281,8 +1431,8 @@ function confirmAbn(record) {
 
 <style scoped>
 .page-shell {
-  background: #f9f7f4;
-  color: #6b7280;
+  background: #fdf5ec;
+  color: #4b5563;
   min-height: 100vh;
   overflow-x: hidden;
   padding: 0;
@@ -1297,8 +1447,8 @@ function confirmAbn(record) {
 
 .container-shell {
   margin: 0 auto;
-  max-width: 1200px;
-  padding: 0 48px;
+  max-width: 1280px;
+  padding: 0 32px;
 }
 
 .flow-wrapper {
@@ -1316,17 +1466,17 @@ function confirmAbn(record) {
 }
 
 .section-a {
-  background-color: #f9f7f4;
+  background-color: #fdf5ec;
   background-image: none;
 }
 
 .section-b {
-  background-color: #f2efe8;
+  background-color: #f7efe5;
   background-image: none;
 }
 
 .section-c {
-  background-color: #eaf7f3;
+  background-color: #fdf5ec;
   background-image: none;
 }
 
@@ -1352,12 +1502,12 @@ function confirmAbn(record) {
 }
 
 .section-fade--hero::after {
-  background: linear-gradient(to bottom, rgba(249, 247, 244, 0), #f9f7f4);
+  background: linear-gradient(to bottom, rgba(253, 245, 236, 0), #fdf5ec);
   bottom: -60px;
 }
 
 .section-fade--stats::after {
-  background: linear-gradient(to bottom, rgba(220, 38, 38, 0), #f2efe8);
+  background: linear-gradient(to bottom, rgba(220, 38, 38, 0), #f7efe5);
   bottom: -60px;
 }
 
@@ -1370,6 +1520,404 @@ function confirmAbn(record) {
 .section-fade--learn::after,
 .section-fade--support::after {
   display: none;
+}
+
+.learn-intro-copy {
+  margin-top: 0;
+  color: #6b7280;
+}
+
+.learn-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+  gap: 24px;
+  align-items: start;
+  padding: 20px 0 10px;
+}
+
+.learn-shell--review {
+  grid-template-columns: minmax(280px, 0.78fr) minmax(0, 1.22fr);
+}
+
+.learn-shell--intro {
+  grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.88fr);
+}
+
+.learn-hero {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 18px;
+  align-items: center;
+  padding: 18px;
+  border-radius: 20px;
+  background: #fffbf7;
+  border: 1px solid rgba(27, 46, 94, 0.12);
+  box-shadow: 0 12px 24px rgba(27, 46, 94, 0.08);
+  margin-bottom: 18px;
+  position: relative;
+}
+
+.learn-hero__icon {
+  width: 76px;
+  height: 76px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: #fef2f2;
+  border: 1px solid #e5e2dc;
+}
+
+.learn-hero__icon img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+.learn-hero__eyebrow {
+  margin: 0 0 6px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #1b2e5e;
+  font-weight: 700;
+}
+
+.learn-hero__content h3 {
+  margin: 0 0 8px;
+  font-size: clamp(1.6rem, 3.2vw, 2.2rem);
+  color: #1b2e5e;
+  border-left: 3px solid #d0312d;
+  padding-left: 12px;
+}
+
+.learn-hero__content h3::after {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 3px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: #d0312d;
+}
+
+.learn-hero__content {
+  padding-left: 6px;
+}
+
+.learn-hero__content p {
+  margin: 0;
+  color: #6b7280;
+  max-width: 64ch;
+}
+
+.learn-flow {
+  display: grid;
+  gap: 14px;
+}
+
+.learn-entry {
+  background: #fffbf7;
+  border: 1px solid rgba(27, 46, 94, 0.12);
+  border-radius: 18px;
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.learn-entry h4 {
+  margin: 0;
+  color: #1b2e5e;
+  font-size: 1.2rem;
+}
+
+.learn-entry__intro {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.learn-scenario-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.scenario-chip {
+  text-align: left;
+  border: 1px solid rgba(27, 46, 94, 0.2);
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.scenario-chip__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scenario-chip__label i {
+  font-style: normal;
+  font-size: 1.1rem;
+}
+
+.scenario-chip__label b {
+  color: #1b2e5e;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.scenario-chip--active {
+  border-color: #1b2e5e;
+  background: #f0f4ff;
+  box-shadow: 0 0 0 2px rgba(27, 46, 94, 0.12);
+}
+
+.learn-primary--full,
+.learn-secondary--full {
+  width: 100%;
+}
+
+.learn-skip-link {
+  margin-top: 8px;
+}
+
+.learn-cover,
+.learn-quiz-complete {
+  background: #fffbf7;
+  border-radius: 22px;
+  border: 1px solid rgba(27, 46, 94, 0.12);
+  padding: 22px;
+  display: grid;
+  gap: 14px;
+  box-shadow: 0 16px 32px rgba(27, 46, 94, 0.08);
+}
+
+.learn-cover__eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #1b2e5e;
+}
+
+.learn-cover__steps {
+  display: grid;
+  gap: 10px;
+}
+
+.learn-step {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 10px;
+  align-items: center;
+  background: #f7efe5;
+  border-radius: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(27, 46, 94, 0.08);
+}
+
+.learn-step span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e8412a;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.learn-cover__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.learn-primary,
+.learn-secondary {
+  border: 0;
+  border-radius: 14px;
+  padding: 10px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition:
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.learn-primary::after,
+.learn-secondary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(27, 46, 94, 0) 0%,
+    rgba(27, 46, 94, 0.22) 55%,
+    rgba(232, 65, 42, 0.32) 100%
+  );
+  transform: translateX(-100%);
+  transition: transform 0.35s ease;
+}
+
+.learn-primary {
+  background: #1b2e5e;
+  color: #ffffff;
+  box-shadow: 0 10px 20px rgba(27, 46, 94, 0.18);
+}
+
+.learn-primary:hover,
+.learn-primary:focus-visible {
+  background: #13244a;
+  box-shadow: 0 14px 24px rgba(27, 46, 94, 0.22);
+}
+
+.learn-primary:active {
+  box-shadow: 0 10px 18px rgba(27, 46, 94, 0.18);
+}
+
+.learn-secondary {
+  background: #fffbf7;
+  color: #1b2e5e;
+  border: 1px solid rgba(27, 46, 94, 0.18);
+}
+
+.learn-secondary:hover,
+.learn-secondary:focus-visible {
+  background: #f7efe5;
+}
+
+.learn-secondary:active {
+  box-shadow: 0 8px 14px rgba(27, 46, 94, 0.14);
+}
+
+.learn-primary:hover::after,
+.learn-primary:focus-visible::after,
+.learn-secondary:hover::after,
+.learn-secondary:focus-visible::after {
+  transform: translateX(0);
+}
+
+.learn-lock {
+  background: #fffbf7;
+  border-radius: 18px;
+  border: 1px dashed rgba(27, 46, 94, 0.28);
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+  color: #4b5563;
+  box-shadow: 0 12px 24px rgba(27, 46, 94, 0.06);
+}
+
+.learn-lock__image {
+  width: 100%;
+  border-radius: 16px;
+  display: block;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border: 1px solid rgba(27, 46, 94, 0.08);
+}
+
+.learn-lock__eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.7rem;
+  color: #1b2e5e;
+  font-weight: 700;
+}
+
+.learn-quiz,
+.learn-simulation {
+  display: grid;
+  gap: 16px;
+}
+
+.learn-header {
+  background: #fffbf7;
+  color: #1b2e5e;
+  border-radius: 18px;
+  padding: 18px;
+  border: 1px solid rgba(27, 46, 94, 0.12);
+  box-shadow: 0 14px 28px rgba(27, 46, 94, 0.08);
+}
+
+.learn-header--complete {
+  box-shadow:
+    0 0 0 2px rgba(232, 65, 42, 0.24),
+    0 14px 28px rgba(27, 46, 94, 0.08);
+}
+
+.learn-kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.7rem;
+  color: #0d9488;
+  font-weight: 700;
+}
+
+.learn-header h3 {
+  margin: 8px 0 6px;
+  font-size: 1.4rem;
+}
+
+.learn-copy {
+  margin: 0;
+  color: #6b7280;
+}
+
+.learn-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  background: rgba(232, 65, 42, 0.1);
+  color: #1b2e5e;
+  border: 1px solid rgba(232, 65, 42, 0.2);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+}
+
+.learn-quiz-complete__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.learn-quiz-complete__hint {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.learn-complete {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fff7df;
+  border: 1px solid rgba(232, 65, 42, 0.16);
+  color: #1a1a2a;
+}
+
+@media (max-width: 980px) {
+  .learn-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .learn-shell--review,
+  .learn-shell--intro {
+    grid-template-columns: 1fr;
+  }
 }
 
 .copy-block {
@@ -1918,6 +2466,7 @@ h1 {
 }
 
 .info-grid {
+  background: #eaf7ea;
   padding: 68px 0 56px;
 }
 
@@ -2181,10 +2730,11 @@ h1 {
 .flow-section--check {
   padding: 76px 0 56px;
   position: relative;
+  background: #f7fbff;
 }
 
 .flow-section--check::before {
-  background: linear-gradient(to bottom, rgba(242, 239, 232, 0), #f2efe8 78%);
+  background: linear-gradient(to bottom, rgba(247, 251, 255, 0), #f7fbff 78%);
   content: '';
   height: 40px;
   left: 0;
@@ -2194,7 +2744,7 @@ h1 {
 }
 
 .preview-band {
-  background: #f5f2ee;
+  background: #f4f9ff;
   border-bottom: 1px solid rgba(31, 45, 107, 0.16);
   border-top: 1px solid rgba(31, 45, 107, 0.16);
   overflow: hidden;
@@ -2672,6 +3222,10 @@ h1 {
   .hero-band__inner,
   .info-grid__inner,
   .feature-preview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .learn-scenario-grid {
     grid-template-columns: 1fr;
   }
 
