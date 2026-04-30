@@ -4,6 +4,7 @@ import { DotLottieVue } from '@lottiefiles/dotlottie-vue'
 import { AlertTriangle, ArrowRight, BookOpen, LifeBuoy, ShieldCheck } from 'lucide-vue-next'
 import ResultPanel from './components/ResultPanel.vue'
 import SubmissionPanel from './components/SubmissionPanel.vue'
+import InsightsPanel from './components/InsightsPanel.vue'
 import { analyzeTextContentByBackend, extractTextFromSubmission, lookupAbnByBackend } from './services/scamAnalysisEngine'
 
 const isAnalyzing = ref(false)
@@ -1107,21 +1108,7 @@ function confirmAbn(record) {
         aria-label="Insights section"
       >
         <div class="container-shell">
-          <h2 class="section-title">Insights</h2>
-          <p class="section-copy copy-block">
-            Weekly trends show where scam activity is rising. Use this section to prioritize
-            warnings.
-          </p>
-          <div class="preview-placeholder" role="status" aria-live="polite">
-            <p class="preview-placeholder__subtitle">
-              <em>Scam scripts and tactics - arriving in Iteration 2</em>
-            </p>
-            <div class="preview-placeholder__grid" aria-hidden="true">
-              <span class="preview-placeholder__card"></span>
-              <span class="preview-placeholder__card"></span>
-              <span class="preview-placeholder__card"></span>
-            </div>
-          </div>
+          <InsightsPanel />
         </div>
       </section>
 
