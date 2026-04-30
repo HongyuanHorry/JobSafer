@@ -37,6 +37,9 @@ const abnLoading = ref(false)
 const abnError = ref('')
 const confirmedAbn = ref(null)
 const NAV_SCROLL_GAP = 18
+const NAV_SCROLL_LIFT = 0
+const LEARN_SCROLL_SETTLE_MS = 120
+const LEARN_BUTTON_EXTRA_GAP = -18
 const CHECK_SCAM_TARGET_ID = 'check-scam-panel'
 const EXTRACTED_PREVIEW_MAX_CHARS = 420
 const SCROLL_SECTION_IDS = [
@@ -271,32 +274,58 @@ function loadLearnState() {
   }
 }
 
-function scrollToLearn() {
-  const anchor = document.getElementById('learn-core-anchor')
+function getStaticOffsetTop(node) {
+  let offset = 0
+  let current = node
+  while (current instanceof HTMLElement) {
+    offset += current.offsetTop
+    current = current.offsetParent
+  }
+  return offset
+}
+
+function scrollToLearn(extraGap = 0) {
+  const targetId = learnStep.value === 'entry' ? 'learn-core-anchor' : 'learn-workflow-anchor'
+  const anchor = document.getElementById(targetId)
   if (!(anchor instanceof HTMLElement)) return
   const header = document.querySelector('.top-strip')
   const headerHeight = header instanceof HTMLElement ? header.offsetHeight : 0
-  const top = anchor.getBoundingClientRect().top + window.scrollY - headerHeight
+  const stickyTopInset =
+    header instanceof HTMLElement
+      ? Number.parseFloat(window.getComputedStyle(header).top || '0') || 0
+      : 0
+  const dynamicGap = NAV_SCROLL_GAP + extraGap
+  const top =
+    getStaticOffsetTop(anchor) - headerHeight - stickyTopInset - dynamicGap - NAV_SCROLL_LIFT
   window.scrollTo({ top, behavior: 'smooth' })
 }
 
 function startLearnQuiz() {
   learnStep.value = 'quiz'
   persistLearnState({ step: 'quiz' })
-  scrollToLearn()
+  scrollToLearnAfterRender(LEARN_BUTTON_EXTRA_GAP)
+}
+
+function scrollToLearnAfterRender(extraGap = 0) {
+  nextTick(() => {
+    scrollToLearn(extraGap)
+    window.setTimeout(() => {
+      scrollToLearn(extraGap)
+    }, LEARN_SCROLL_SETTLE_MS)
+  })
 }
 
 function startWalkthroughDirectly() {
   learnQuizResult.value = null
   learnStep.value = 'walkthrough'
   persistLearnState({ step: 'walkthrough', quizResult: null })
-  scrollToLearn()
+  scrollToLearnAfterRender(LEARN_BUTTON_EXTRA_GAP)
 }
 
 function openWalkthroughFromQuiz() {
   learnStep.value = 'walkthrough'
   persistLearnState({ step: 'walkthrough' })
-  scrollToLearn()
+  scrollToLearnAfterRender(LEARN_BUTTON_EXTRA_GAP)
 }
 
 function backToWorkflowChoice() {
@@ -324,11 +353,7 @@ function scrollToSection(sectionId) {
       ? Number.parseFloat(window.getComputedStyle(header).top || '0') || 0
       : 0
   const top =
-    node.getBoundingClientRect().top +
-    window.scrollY -
-    headerHeight -
-    stickyTopInset -
-    NAV_SCROLL_GAP
+    getStaticOffsetTop(node) - headerHeight - stickyTopInset - NAV_SCROLL_GAP - NAV_SCROLL_LIFT
 
   window.scrollTo({ top, behavior: 'smooth' })
 }
@@ -1236,7 +1261,7 @@ function confirmAbn(record) {
               <img src="https://img.icons8.com/cotton/64/combo-chart--v1.png" alt="" />
             </div>
             <div class="learn-hero__content">
-              <p class="learn-hero__eyebrow">Core workflow</p>
+              <p class="learn-hero__eyebrow">🧠 Read the script before the scammer reads you.</p>
               <h3>Scam Progression Simulator</h3>
               <p>
                 Explore real-world scam scripts and practice safe decisions in a guided simulator.
@@ -1244,13 +1269,22 @@ function confirmAbn(record) {
             </div>
           </div>
 
-          <div class="learn-flow">
+          <div id="learn-workflow-anchor" class="learn-flow">
             <div v-if="learnStep === 'entry'" class="learn-entry">
-              <h4>What would you like to do?</h4>
+              <p class="learn-entry__eyebrow">🎮 Pick your mission</p>
+              <h4>Ready to outsmart this scam with Alex?</h4>
               <p class="learn-entry__intro">
-                Choose a scam scenario first, then either jump into walkthrough or run a quick type
-                check.
+                Choose one scenario. Then either jump straight into the walkthrough, or quickly test
+                scam type first.
               </p>
+              <p class="learn-entry__microhint">
+                ✨ Tip: You only need 2–3 minutes to complete one run.
+              </p>
+              <div class="learn-entry__funline" aria-hidden="true">
+                <span>🛡️ Pattern radar on</span>
+                <span>⚡ Pressure meter live</span>
+                <span>🎯 Beat the script</span>
+              </div>
               <div class="learn-scenario-grid" role="list" aria-label="Scam scenario options">
                 <button
                   v-for="option in learnScenarioOptions"
@@ -1261,8 +1295,8 @@ function confirmAbn(record) {
                   @click="setLearnScenario(option.key)"
                 >
                   <span class="scenario-chip__label">
-                    <i aria-hidden="true">{{ option.icon }}</i>
                     <b>{{ option.label }}</b>
+                    <i aria-hidden="true">{{ option.icon }}</i>
                   </span>
                 </button>
               </div>
@@ -1271,14 +1305,14 @@ function confirmAbn(record) {
                 type="button"
                 @click="startWalkthroughDirectly"
               >
-                Walk through a scam scenario →
+                🚀 Start walkthrough now
               </button>
               <button
                 class="learn-secondary learn-secondary--full"
                 type="button"
                 @click="startLearnQuiz"
               >
-                Check what type of scam this is first
+                🧪 Test scam type first
               </button>
             </div>
 
@@ -1555,6 +1589,9 @@ function confirmAbn(record) {
   box-shadow: 0 12px 24px rgba(27, 46, 94, 0.08);
   margin-bottom: 18px;
   position: relative;
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
 }
 
 .learn-hero__icon {
@@ -1575,9 +1612,7 @@ function confirmAbn(record) {
 
 .learn-hero__eyebrow {
   margin: 0 0 6px;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  font-size: 0.82rem;
   color: #1b2e5e;
   font-weight: 700;
 }
@@ -1586,18 +1621,6 @@ function confirmAbn(record) {
   margin: 0 0 8px;
   font-size: clamp(1.6rem, 3.2vw, 2.2rem);
   color: #1b2e5e;
-  border-left: 3px solid #d0312d;
-  padding-left: 12px;
-}
-
-.learn-hero__content h3::after {
-  content: '';
-  display: block;
-  width: 40px;
-  height: 3px;
-  margin-top: 8px;
-  border-radius: 999px;
-  background: #d0312d;
 }
 
 .learn-hero__content {
@@ -1613,15 +1636,31 @@ function confirmAbn(record) {
 .learn-flow {
   display: grid;
   gap: 14px;
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  transition:
+    opacity 0.2s ease,
+    transform 0.22s ease;
 }
 
 .learn-entry {
   background: #fffbf7;
   border: 1px solid rgba(27, 46, 94, 0.12);
   border-radius: 18px;
-  padding: 16px;
+  padding: 18px;
   display: grid;
-  gap: 10px;
+  gap: 12px;
+  box-shadow: 0 12px 24px rgba(27, 46, 94, 0.08);
+}
+
+.learn-entry__eyebrow {
+  margin: 0;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #1b2e5e;
+  font-weight: 800;
 }
 
 .learn-entry h4 {
@@ -1634,6 +1673,31 @@ function confirmAbn(record) {
   margin: 0;
   color: #6b7280;
   font-size: 0.95rem;
+}
+
+.learn-entry__microhint {
+  margin: -2px 0 0;
+  color: #1f2d6b;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.learn-entry__funline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.learn-entry__funline span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: #1f2d6b;
+  background: #f0f4ff;
+  border: 1px solid rgba(27, 46, 94, 0.16);
+  padding: 4px 8px;
+  border-radius: 999px;
 }
 
 .learn-scenario-grid {
@@ -1651,12 +1715,24 @@ function confirmAbn(record) {
   display: grid;
   gap: 4px;
   cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.scenario-chip:hover,
+.scenario-chip:focus-visible {
+  transform: translateY(-1px);
+  border-color: #1b2e5e;
+  box-shadow: 0 8px 14px rgba(27, 46, 94, 0.12);
 }
 
 .scenario-chip__label {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  justify-content: space-between;
 }
 
 .scenario-chip__label i {
@@ -1668,6 +1744,11 @@ function confirmAbn(record) {
   color: #1b2e5e;
   font-weight: 700;
   font-size: 0.9rem;
+  order: 1;
+}
+
+.scenario-chip__label i {
+  order: 2;
 }
 
 .scenario-chip--active {
@@ -1946,8 +2027,8 @@ function confirmAbn(record) {
   gap: 14px;
   margin: 0 auto;
   max-width: 1200px;
-  min-height: 43px;
-  padding: 7px 24px;
+  min-height: 35px;
+  padding: 4px 24px;
   position: relative;
   transition: box-shadow 0.24s ease;
   width: calc(100% - 96px);
@@ -1959,12 +2040,15 @@ function confirmAbn(record) {
 
 .brand-home {
   align-items: center;
+  border-radius: 20px;
   color: #1f2d6b;
   display: inline-flex;
   font-size: 0.9rem;
   font-weight: 700;
   gap: 8px;
+  min-height: 35px;
   margin-right: 8px;
+  padding: 6px 12px;
   text-decoration: none;
 }
 
@@ -1991,7 +2075,7 @@ function confirmAbn(record) {
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 500;
-  min-height: 28px;
+  min-height: 35px;
   padding: 6px 14px;
   transition: all 200ms ease;
 }
@@ -2645,7 +2729,7 @@ h1 {
 .snap-stage {
   align-items: center;
   display: flex;
-  min-height: calc(100vh - 52px);
+  min-height: calc(100vh - 76px);
   overflow: clip;
   position: relative;
   --parallax-offset: 0px;
@@ -2869,6 +2953,7 @@ h1 {
 
 .site-footer__summary {
   color: #f2efe8;
+  line-height: 1.5;
   margin: 0;
 }
 
@@ -2909,12 +2994,14 @@ h1 {
 }
 
 .site-footer__link {
+  align-items: center;
+  border-radius: 20px;
   color: #f2efe8;
-  display: inline-block;
+  display: inline-flex;
   font-size: 14px;
   line-height: 1.35;
-  min-height: 0;
-  padding: 0;
+  min-height: 35px;
+  padding: 6px 14px;
   text-decoration: none;
 }
 
@@ -3201,8 +3288,8 @@ h1 {
   .top-strip__inner {
     border-radius: 20px;
     max-width: 100%;
-    min-height: 43px;
-    padding: 7px 16px;
+    min-height: 35px;
+    padding: 4px 14px;
     width: calc(100% - 48px);
   }
 
@@ -3305,8 +3392,8 @@ h1 {
   }
 
   .top-strip__inner {
-    min-height: 43px;
-    padding: 7px 12px;
+    min-height: 35px;
+    padding: 4px 10px;
     width: calc(100% - 20px);
   }
 
