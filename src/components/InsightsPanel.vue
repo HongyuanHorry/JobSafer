@@ -444,7 +444,7 @@ function formatMoney(value) {
   display: grid;
   gap: 24px;
   max-width: 1040px;
-  padding: 94px;
+  padding: 120px;
 }
 
 .age-hero-copy h3 {

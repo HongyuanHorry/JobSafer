@@ -133,7 +133,7 @@ function formatPercent(percent) {
   gap: 18px;
 }
 
-..picto-row {
+.picto-row {
   align-items: center;
   background: var(--ms-color-surface-subtle);
   border: 1px solid var(--ms-color-border-soft);
