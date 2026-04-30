@@ -739,8 +739,7 @@ watch(
 
         <p class="privacy-note">
           Privacy note: Your submitted text, link, or extracted PDF content is used only for this
-          risk assessment workflow. Please avoid uploading highly sensitive personal data such as
-          bank credentials, identity numbers, or private account secrets.
+          risk assessment workflow. We do not store or use your data for any other purpose, and it is not shared with third.
         </p>
 
         <p v-if="errorMessage" class="error-text" role="alert" aria-live="assertive">
@@ -1342,7 +1341,7 @@ textarea:focus {
   background: #f9f7f4;
   border: 1px solid #e5e2dc;
   border-radius: 8px;
-  color: #6b7280;
+  color: #1f4f8b;
   font-size: 0.74rem;
   letter-spacing: 0.01em;
   line-height: 1.6;
