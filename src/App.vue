@@ -37,6 +37,12 @@ const abnResults = ref([])
 const abnLoading = ref(false)
 const abnError = ref('')
 const confirmedAbn = ref(null)
+const SITE_PASSWORD = (import.meta.env.VITE_SITE_PASSWORD || '').trim()
+const SITE_PASSWORD_SESSION_KEY = 'stepsafe-site-password-auth'
+const requiresSitePassword = computed(() => Boolean(SITE_PASSWORD))
+const isSiteAuthorized = ref(!SITE_PASSWORD)
+const sitePasswordInput = ref('')
+const sitePasswordError = ref('')
 const NAV_SCROLL_GAP = 18
 const NAV_SCROLL_LIFT = 0
 const LEARN_SCROLL_SETTLE_MS = 120
@@ -64,6 +70,7 @@ let particleReduceMotionQuery = null
 let particleReduceMotionHandler = null
 let particleResizeHandler = null
 let stageMotionFrame = null
+let hasPageShellInitialized = false
 
 const heroParticleState = {
   canvas: null,
@@ -711,22 +718,13 @@ function initHeroParticles() {
   }
 }
 
-onMounted(() => {
-  particleReduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
-  particleReduceMotionHandler = () => initHeroParticles()
-  particleResizeHandler = () => resizeHeroParticleCanvas()
+onMounted(async () => {
+  restoreSiteAuthorization()
 
-  particleReduceMotionQuery.addEventListener('change', particleReduceMotionHandler)
-  window.addEventListener('resize', particleResizeHandler)
-
-  initHeroParticles()
-  initRevealObserver()
-  initStatsObserver()
-  loadLearnState()
-  updateSnapStageMotion()
-  window.addEventListener('keydown', handleGlobalKeydown)
-  window.addEventListener('scroll', handleWindowScroll, { passive: true })
-  handleWindowScroll()
+  if (isSiteAuthorized.value) {
+    await nextTick()
+    initializePageShell()
+  }
 })
 
 watch(showResult, async (visible) => {
@@ -763,34 +761,7 @@ watch(showResult, async (visible) => {
 })
 
 onBeforeUnmount(() => {
-  if (revealObserver) {
-    revealObserver.disconnect()
-  }
-
-  window.removeEventListener('keydown', handleGlobalKeydown)
-  window.removeEventListener('scroll', handleWindowScroll)
-
-  if (statsObserver) {
-    statsObserver.disconnect()
-  }
-
-  if (pageFadeTimer) {
-    clearTimeout(pageFadeTimer)
-  }
-
-  if (highlightTimer) {
-    clearTimeout(highlightTimer)
-  }
-
-  stopHeroParticles()
-
-  if (particleReduceMotionQuery && particleReduceMotionHandler) {
-    particleReduceMotionQuery.removeEventListener('change', particleReduceMotionHandler)
-  }
-
-  if (particleResizeHandler) {
-    window.removeEventListener('resize', particleResizeHandler)
-  }
+  teardownPageShell()
 })
 
 async function handleSubmission(payload) {
@@ -859,10 +830,130 @@ function clearAbn() {
 function confirmAbn(record) {
   confirmedAbn.value = record
 }
+
+function restoreSiteAuthorization() {
+  if (!requiresSitePassword.value || typeof window === 'undefined') {
+    isSiteAuthorized.value = true
+    return
+  }
+
+  isSiteAuthorized.value =
+    window.sessionStorage.getItem(SITE_PASSWORD_SESSION_KEY) === 'granted'
+}
+
+function initializePageShell() {
+  if (hasPageShellInitialized || !isSiteAuthorized.value) return
+
+  hasPageShellInitialized = true
+  particleReduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+  particleReduceMotionHandler = () => initHeroParticles()
+  particleResizeHandler = () => resizeHeroParticleCanvas()
+
+  particleReduceMotionQuery.addEventListener('change', particleReduceMotionHandler)
+  window.addEventListener('resize', particleResizeHandler)
+
+  initHeroParticles()
+  initRevealObserver()
+  initStatsObserver()
+  loadLearnState()
+  updateSnapStageMotion()
+  window.addEventListener('keydown', handleGlobalKeydown)
+  window.addEventListener('scroll', handleWindowScroll, { passive: true })
+  handleWindowScroll()
+}
+
+function teardownPageShell() {
+  if (revealObserver) {
+    revealObserver.disconnect()
+  }
+
+  window.removeEventListener('keydown', handleGlobalKeydown)
+  window.removeEventListener('scroll', handleWindowScroll)
+
+  if (statsObserver) {
+    statsObserver.disconnect()
+  }
+
+  if (pageFadeTimer) {
+    clearTimeout(pageFadeTimer)
+  }
+
+  if (highlightTimer) {
+    clearTimeout(highlightTimer)
+  }
+
+  stopHeroParticles()
+
+  if (particleReduceMotionQuery && particleReduceMotionHandler) {
+    particleReduceMotionQuery.removeEventListener('change', particleReduceMotionHandler)
+  }
+
+  if (particleResizeHandler) {
+    window.removeEventListener('resize', particleResizeHandler)
+  }
+
+  hasPageShellInitialized = false
+}
+
+async function unlockSite() {
+  if (!requiresSitePassword.value) {
+    isSiteAuthorized.value = true
+    return
+  }
+
+  if (sitePasswordInput.value !== SITE_PASSWORD) {
+    sitePasswordError.value = 'Incorrect password. Please try again.'
+    return
+  }
+
+  sitePasswordError.value = ''
+  isSiteAuthorized.value = true
+  window.sessionStorage.setItem(SITE_PASSWORD_SESSION_KEY, 'granted')
+  await nextTick()
+  initializePageShell()
+}
 </script>
 
 <template>
-  <main id="home" class="page-shell">
+  <section
+    v-if="requiresSitePassword && !isSiteAuthorized"
+    class="site-password-gate"
+    aria-label="Protected site access"
+  >
+    <div class="site-password-card">
+      <span class="site-password-card__eyebrow">Private preview</span>
+      <h1>Enter password to access StepSafe</h1>
+      <p>
+        This site is password-protected to reduce casual scraping and unauthorized access while
+        the project is being reviewed.
+      </p>
+
+      <form class="site-password-form" @submit.prevent="unlockSite">
+        <label class="site-password-form__label" for="site-password-input">
+          Site password
+        </label>
+        <input
+          id="site-password-input"
+          v-model="sitePasswordInput"
+          class="site-password-form__input"
+          type="password"
+          autocomplete="current-password"
+          placeholder="Enter password"
+          @input="sitePasswordError = ''"
+        />
+
+        <p v-if="sitePasswordError" class="site-password-form__error" role="alert">
+          {{ sitePasswordError }}
+        </p>
+
+        <button type="submit" class="site-password-form__button">
+          Unlock site
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <main v-else id="home" class="page-shell">
     <header
       class="top-strip"
       :class="{ 'top-strip--elevated': isNavElevated }"
@@ -1467,6 +1558,101 @@ function confirmAbn(record) {
 </template>
 
 <style scoped>
+.site-password-gate {
+  align-items: center;
+  background:
+    radial-gradient(circle at top, rgba(31, 45, 107, 0.12), transparent 34%),
+    linear-gradient(180deg, #fdf5ec 0%, #f7efe5 100%);
+  color: #1a1a2a;
+  display: grid;
+  min-height: 100vh;
+  padding: 32px 20px;
+}
+
+.site-password-card {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(31, 45, 107, 0.12);
+  border-radius: 28px;
+  box-shadow: 0 24px 60px rgba(27, 46, 94, 0.12);
+  margin: 0 auto;
+  max-width: 540px;
+  padding: 32px;
+  width: min(100%, 540px);
+}
+
+.site-password-card__eyebrow {
+  color: #1f2d6b;
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+
+.site-password-card h1 {
+  color: #1f2d6b;
+  font-family: var(--ms-font-heading);
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  line-height: 1.05;
+  margin: 0 0 12px;
+}
+
+.site-password-card p {
+  color: #6b7280;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.site-password-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.site-password-form__label {
+  color: #1f2d6b;
+  font-weight: 700;
+}
+
+.site-password-form__input {
+  background: #fffdfa;
+  border: 1px solid #d9d7d1;
+  border-radius: 16px;
+  color: #1a1a2a;
+  font-family: var(--ms-font-stack);
+  font-size: 1rem;
+  padding: 14px 16px;
+}
+
+.site-password-form__input:focus {
+  border-color: #1f2d6b;
+  box-shadow: 0 0 0 4px rgba(31, 45, 107, 0.12);
+  outline: none;
+}
+
+.site-password-form__error {
+  color: #b42318;
+  font-size: 0.92rem;
+  margin: 0;
+}
+
+.site-password-form__button {
+  background: #1f2d6b;
+  border: 0;
+  border-radius: 999px;
+  color: white;
+  cursor: pointer;
+  font-family: var(--ms-font-stack);
+  font-size: 1rem;
+  font-weight: 800;
+  padding: 14px 18px;
+}
+
+.site-password-form__button:hover {
+  background: #25357f;
+}
+
 .page-shell {
   background: #fdf5ec;
   color: #4b5563;

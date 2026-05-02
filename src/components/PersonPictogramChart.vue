@@ -1,4 +1,6 @@
 <script setup>
+import { formatPercent as formatPercentValue } from '../utils/chartFormatters.js'
+
 const props = defineProps({
   title: {
     type: String,
@@ -38,7 +40,15 @@ function getIconFills(percent, iconCount = 5) {
 }
 
 function formatPercent(percent) {
-  return `${Math.round(Number(percent || 0))}%`
+  return formatPercentValue(percent, 0)
+}
+
+function getStatLabel(item) {
+  return item.statLabel || formatPercent(item.percent)
+}
+
+function getStatCaption(item) {
+  return item.statCaption || null
 }
 </script>
 
@@ -99,7 +109,8 @@ function formatPercent(percent) {
           </div>
 
           <div class="picto-percent">
-            {{ formatPercent(item.percent) }}
+            <strong>{{ getStatLabel(item) }}</strong>
+            <small v-if="getStatCaption(item)">{{ getStatCaption(item) }}</small>
           </div>
         </div>
       </article>
@@ -217,15 +228,27 @@ function formatPercent(percent) {
 }
 
 .picto-card--age .picto-icon__fg use {
-  fill: #6b8f53;
+  fill: #c86a2b;
 }
 
 .picto-percent {
   color: var(--ms-color-text-primary);
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+  min-width: 88px;
+  text-align: right;
+}
+
+.picto-percent strong {
   font-size: 1.1rem;
   font-weight: 800;
-  min-width: 54px;
-  text-align: right;
+}
+
+.picto-percent small {
+  color: var(--ms-color-text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.35;
 }
 
 .picto-defs {
@@ -243,6 +266,7 @@ function formatPercent(percent) {
   }
 
   .picto-percent {
+    justify-items: start;
     text-align: left;
   }
 
