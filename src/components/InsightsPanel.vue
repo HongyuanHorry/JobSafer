@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch, onBeforeUnmount } from 'vue'
+import { formatMoney, formatNumber } from '../utils/chartFormatters.js'
 import LeafletD3Map from './LeafletD3Map.vue'
 import PersonPictogramChart from './PersonPictogramChart.vue'
 import DualAxisTrendChart from './DualAxisTrendChart.vue'
@@ -54,6 +55,43 @@ const youthAgeGroup = computed(() =>
   ageData.value.find((row) => row.label === '18–24' || row.label === '18-24'),
 )
 
+function getRelatableShareLabel(percent) {
+  const safePercent = Number(percent || 0)
+
+  if (!Number.isFinite(safePercent) || safePercent < 1) {
+    return 'Less than 1 in 100'
+  }
+
+  if (safePercent >= 99) {
+    return 'Almost everyone'
+  }
+
+  const friendlyBenchmarks = [
+    { percent: 50, denominator: 2 },
+    { percent: 33.3, denominator: 3 },
+    { percent: 25, denominator: 4 },
+    { percent: 20, denominator: 5 },
+    { percent: 10, denominator: 10 },
+    { percent: 5, denominator: 20 },
+    { percent: 2, denominator: 50 },
+    { percent: 1, denominator: 100 },
+  ]
+
+  const benchmark =
+    friendlyBenchmarks.find((item) => safePercent >= item.percent - 3.5) ||
+    friendlyBenchmarks[friendlyBenchmarks.length - 1]
+
+  if (safePercent >= benchmark.percent + 3.5) {
+    return `More than 1 in ${benchmark.denominator}`
+  }
+
+  if (safePercent < benchmark.percent) {
+    return `Nearly 1 in ${benchmark.denominator}`
+  }
+
+  return `About 1 in ${benchmark.denominator}`
+}
+
 const agePictogramItems = computed(() => {
   if (!youthAgeGroup.value) return []
 
@@ -65,8 +103,10 @@ const agePictogramItems = computed(() => {
     {
       label: '18–24',
       displayValue: `${formatNumber(youthAgeGroup.value.value)} reports`,
-      helper: `${share.toFixed(1)}% of reports for this scam type`,
+      helper: `${getRelatableShareLabel(share)} reports involved someone aged 18 to 24`,
       percent: share,
+      statLabel: getRelatableShareLabel(share),
+      statCaption: `${share.toFixed(1)}% of reports for this scam type came from 18 to 24 year olds`,
       highlighted: true,
       badge: 'Young job seekers',
     },
@@ -103,14 +143,6 @@ function stopPlayback() {
 onBeforeUnmount(() => {
   stopPlayback()
 })
-
-function formatNumber(value) {
-  return Number(value || 0).toLocaleString()
-}
-
-function formatMoney(value) {
-  return `$${Number(value || 0).toLocaleString()}`
-}
 </script>
 
 <template>

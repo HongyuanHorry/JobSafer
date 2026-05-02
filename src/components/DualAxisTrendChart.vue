@@ -11,6 +11,7 @@ import {
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import { computed } from 'vue'
+import { formatMoney, formatNumber } from '../utils/chartFormatters.js'
 
 ChartJS.register(
   CategoryScale,
@@ -36,14 +37,6 @@ const props = defineProps({
     default: '',
   },
 })
-
-function formatNumber(value) {
-  return Number(value || 0).toLocaleString()
-}
-
-function formatMoney(value) {
-  return `$${Number(value || 0).toLocaleString()}`
-}
 
 const chartData = computed(() => ({
   labels: props.trendData.map((row) => row.year),
@@ -85,29 +78,48 @@ const lossValues = computed(() =>
   props.trendData.map((row) => Number(row.total_loss || 0)),
 )
 
-function getPaddedRange(values, paddingRatio = 0.15) {
+function roundDown(value, step) {
+  return Math.floor(value / step) * step
+}
+
+function roundUp(value, step) {
+  return Math.ceil(value / step) * step
+}
+
+function getRoundedReportRange(values) {
   const cleanValues = values.filter(Number.isFinite)
 
   if (!cleanValues.length) {
-    return {
-      min: 0,
-      max: 1,
-    }
+    return { min: 0, max: 1 }
   }
 
   const minValue = Math.min(...cleanValues)
   const maxValue = Math.max(...cleanValues)
-  const range = maxValue - minValue || maxValue || 1
-  const padding = range * paddingRatio
 
   return {
-    min: Math.max(0, Math.floor(minValue - padding)),
-    max: Math.ceil(maxValue + padding),
+    min: Math.max(0, roundDown(minValue - 1000, 1000)),
+    max: roundUp(maxValue + 1000, 1000),
   }
 }
 
-const reportAxisRange = computed(() => getPaddedRange(reportValues.value, 0.25))
-const lossAxisRange = computed(() => getPaddedRange(lossValues.value, 0.25))
+function getRoundedLossRange(values) {
+  const cleanValues = values.filter(Number.isFinite)
+
+  if (!cleanValues.length) {
+    return { min: 0, max: 1 }
+  }
+
+  const minValue = Math.min(...cleanValues)
+  const maxValue = Math.max(...cleanValues)
+
+  return {
+    min: Math.max(0, roundDown(minValue - 1000000, 1000000)),
+    max: roundUp(maxValue + 1000000, 1000000),
+  }
+}
+
+const reportAxisRange = computed(() => getRoundedReportRange(reportValues.value))
+const lossAxisRange = computed(() => getRoundedLossRange(lossValues.value))
 
 const chartOptions = computed(() => ({
   responsive: true,
