@@ -1,4 +1,5 @@
-<script setupimport { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+<script setup>
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { DotLottieVue } from '@lottiefiles/dotlottie-vue'
 import { ArrowRight, BookOpen, LifeBuoy, ShieldCheck } from 'lucide-vue-next'
 import ResultPanel from './components/ResultPanel.vue'
@@ -1452,7 +1453,7 @@ function confirmAbn(record) {
                 <span class="site-footer__team-label">Production Team</span>
                 <img
                   class="site-footer__team-icon"
-                  src="/icons/TeamIcon.jpeg"
+                  src="/icons/TeamIcon.png"
                   alt="Production Team"
                   loading="lazy"
                 />
