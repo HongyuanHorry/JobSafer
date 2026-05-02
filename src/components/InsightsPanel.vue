@@ -39,9 +39,7 @@ const summary = computed(() => getAggregateSummary())
 const rankInfo = computed(() => getScamTypeRank(selectedScamType.value))
 const timePeriod = computed(() => getTimePeriod())
 
-const locationTrendData = computed(() =>
-  getLocationTrendByScamType(selectedScamType.value),
-)
+const locationTrendData = computed(() => getLocationTrendByScamType(selectedScamType.value))
 
 const yearLocationData = computed(() =>
   locationTrendData.value.filter((row) => Number(row.year) === Number(selectedYear.value)),
@@ -151,7 +149,8 @@ onBeforeUnmount(() => {
       <div>
         <h2 class="section-title">Insights</h2>
         <p class="section-copy">
-          Explore reported scam data by choosing a scam type and the kind of insight you want to see.
+          Explore reported scam data by choosing a scam type and the kind of insight you want to
+          see.
         </p>
       </div>
 
@@ -190,8 +189,8 @@ onBeforeUnmount(() => {
       <div class="age-hero-copy">
         <h3>Young adult risk indicator</h3>
         <p>
-          This view focuses on 18–24 year olds, because StepSafe is designed for
-          students and early-career job seekers.
+          This view focuses on 18–24 year olds, because JobSafer is designed for students and
+          early-career job seekers.
         </p>
       </div>
 
@@ -216,19 +215,12 @@ onBeforeUnmount(() => {
 
       <div v-else class="map-sample-layout">
         <div class="map-toolbar">
-          <button type="button" class="map-control-btn" @click="startPlayback">
-            Play
-          </button>
+          <button type="button" class="map-control-btn" @click="startPlayback">Play</button>
 
-          <button type="button" class="map-control-btn" @click="stopPlayback">
-            Pause
-          </button>
+          <button type="button" class="map-control-btn" @click="stopPlayback">Pause</button>
         </div>
 
-        <LeafletD3Map
-          :map-data="locationTrendData"
-          :selected-year="Number(selectedYear)"
-        />
+        <LeafletD3Map :map-data="locationTrendData" :selected-year="Number(selectedYear)" />
 
         <div class="map-year-row">
           <strong>Year: {{ selectedYear }}</strong>
@@ -510,8 +502,8 @@ onBeforeUnmount(() => {
   border: 1px solid var(--ms-color-border-soft);
   border-radius: 26px;
   display: grid;
-  grid-template-columns: auto auto auto; 
-  justify-content: center;              
+  grid-template-columns: auto auto auto;
+  justify-content: center;
   justify-items: center;
   column-gap: 56px;
   min-height: 330px;

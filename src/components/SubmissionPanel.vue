@@ -32,13 +32,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits([
-  'submit',
-  'update:abn-query',
-  'search-abn',
-  'clear-abn',
-  'confirm-abn',
-])
+const emit = defineEmits(['submit', 'update:abn-query', 'search-abn', 'clear-abn', 'confirm-abn'])
 
 const STORAGE_LAST_MODE_KEY = 'stepsafe:last-input-mode'
 const STORAGE_RECENT_CHECKS_KEY = 'stepsafe:recent-checks'
@@ -77,10 +71,10 @@ const abnPreviewModes = [
 ]
 
 const sampleInputs = {
-  low: 'Hello, thank you for your application. Please respond before the deadline today so we can confirm interview slots this week. No payment is required for this role.',
+  low: 'Hello, thank you for applying. We received your resume and will review your application in 3 to 5 business days. We will contact you through the company portal for the next interview step.',
   medium:
-    'This role promises easy money and no experience needed high income. Act now because this offer is today only.',
-  high: 'Urgent: complete simple task batches now and earn guaranteed income. Transfer a registration fee immediately to release your payout today only.',
+    'Congratulations, you are shortlisted for an exclusive opportunity with limited slots. Please review the role details at https://careers-example.com and wait for formal interview confirmation.',
+  high: 'Earn $300 daily with simple tasks and easy money. To activate your account and unlock payout, transfer the onboarding fee now and complete payment immediately.',
 }
 
 const inputLabel = computed(() => {
@@ -739,7 +733,8 @@ watch(
 
         <p class="privacy-note">
           Privacy note: Your submitted text, link, or extracted PDF content is used only for this
-          risk assessment workflow. We do not store or use your data for any other purpose, and it is not shared with third.
+          risk assessment workflow. We do not store or use your data for any other purpose, and it
+          is not shared with third.
         </p>
 
         <p v-if="errorMessage" class="error-text" role="alert" aria-live="assertive">
@@ -1341,7 +1336,7 @@ textarea:focus {
   background: #f9f7f4;
   border: 1px solid #e5e2dc;
   border-radius: 8px;
-  color: #1f4f8b;
+  color: #d0312d;
   font-size: 0.74rem;
   letter-spacing: 0.01em;
   line-height: 1.6;
