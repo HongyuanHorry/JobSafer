@@ -1448,7 +1448,7 @@ async function unlockSite() {
             >
               <LifeBuoy :size="48" aria-hidden="true" />
               <h3>Recovery playbooks</h3>
-              <span>Coming in Iteration 2</span>
+              <span>Coming in Iteration 3</span>
             </article>
             <article
               class="feature-preview feature-preview--support reveal-on-scroll reveal-fade-up"
@@ -1456,7 +1456,7 @@ async function unlockSite() {
             >
               <ShieldCheck :size="48" aria-hidden="true" />
               <h3>Verification toolkit</h3>
-              <span>Coming in Iteration 2</span>
+              <span>Coming in Iteration 3</span>
             </article>
             <article
               class="feature-preview feature-preview--support reveal-on-scroll reveal-fade-up"
@@ -1464,11 +1464,11 @@ async function unlockSite() {
             >
               <BookOpen :size="48" aria-hidden="true" />
               <h3>Reporting guides</h3>
-              <span>Coming in Iteration 2</span>
+              <span>Coming in Iteration 3</span>
             </article>
           </div>
           <p class="feature-preview-note">
-            <em>Scam scripts and tactics - arriving in Iteration 2</em>
+            <em>Scam scripts and tactics - arriving in Iteration 3</em>
           </p>
         </div>
       </section>
