@@ -228,11 +228,11 @@ const footerFriendLinks = [
 ]
 
 const footerProductLinks = [
-  { label: 'Home', href: '#home-section' },
-  { label: 'Check Scam', href: '#check-scam-panel' },
-  { label: 'Insights', href: '#insights-section' },
-  { label: 'Learn', href: '#learn-core-anchor' },
-  { label: 'Support', href: '#support-section' },
+  { label: 'Home', sectionId: 'home-section' },
+  { label: 'Check Scam', sectionId: CHECK_SCAM_TARGET_ID },
+  { label: 'Insights', sectionId: 'insights-section' },
+  { label: 'Learn', sectionId: 'learn-section' },
+  { label: 'Support', sectionId: 'support-section' },
 ]
 
 const footerLegalLinks = [
@@ -382,6 +382,17 @@ function navigateToSection(sectionId) {
     isPageFading.value = false
   }, 200)
   scrollToSection(sectionId)
+}
+
+function handleFooterProductNavigation(item) {
+  if (!item?.sectionId) return
+
+  if (item.sectionId === CHECK_SCAM_TARGET_ID || item.sectionId === 'check-section') {
+    goToCheckScam()
+    return
+  }
+
+  navigateToSection(item.sectionId)
 }
 
 function goToCheckScam() {
@@ -950,8 +961,8 @@ async function unlockSite() {
     >
       <div class="top-strip__inner">
         <a class="brand-home" href="#home-section" aria-label="Go to Home section">
-          <img src="/icons/stepsafe_logo.svg" alt="StepSafe" />
-          <span>StepSafe</span>
+          <img src="/icons/stepsafe_logo.svg" alt="JobSafer" />
+          <span>JobSafer</span>
         </a>
 
         <nav class="top-nav-desktop" aria-label="Primary navigation">
@@ -1049,7 +1060,7 @@ async function unlockSite() {
         <canvas ref="heroParticlesCanvas" class="hero-particles" aria-hidden="true"></canvas>
         <div class="container-shell hero-band__inner">
           <div class="hero-copy">
-            <p class="hero-eyebrow">StepSafe Employment Scam Alert</p>
+            <p class="hero-eyebrow">JobSafer Employment Scam Alert</p>
             <h1>
               Spot job
               <span class="hero-wordmark"
@@ -1121,7 +1132,7 @@ async function unlockSite() {
 
       <section class="how-it-works section-c section-fade section-fade--how">
         <div class="container-shell">
-          <h2 class="section-title">How StepSafe Works</h2>
+          <h2 class="section-title">How JobSafer Works</h2>
           <div class="how-grid">
             <svg
               class="how-grid__connector"
@@ -1476,8 +1487,8 @@ async function unlockSite() {
       <footer class="site-footer" aria-label="Site information">
         <div class="container-shell site-footer__inner">
           <div class="site-footer__brand">
-            <img src="/icons/stepsafe_logo.svg" alt="StepSafe" />
-            <span>StepSafe</span>
+            <img src="/icons/stepsafe_logo.svg" alt="JobSafer" />
+            <span>JobSafer</span>
           </div>
           <p class="site-footer__summary">Built for scam awareness and recovery.</p>
 
@@ -1485,14 +1496,15 @@ async function unlockSite() {
             <div class="site-footer__col site-footer__col--product">
               <p class="site-footer__heading">Product</p>
               <div class="site-footer__link-list">
-                <a
+                <button
                   v-for="item in footerProductLinks"
-                  :key="item.href"
-                  class="site-footer__link"
-                  :href="item.href"
+                  :key="item.sectionId"
+                  type="button"
+                  class="site-footer__link site-footer__link--button"
+                  @click="handleFooterProductNavigation(item)"
                 >
                   <span>{{ item.label }}</span>
-                </a>
+                </button>
               </div>
             </div>
 
@@ -1527,14 +1539,18 @@ async function unlockSite() {
                   <span>{{ item.label }}</span>
                 </a>
               </div>
-              <p class="site-footer__meta">©2026 StepSafe</p>
+              <p class="site-footer__meta">©2026 JobSafer</p>
+              <div class="site-footer__team" aria-label="Production Team">
+                <span class="site-footer__team-label">Production Team</span>
+                <img
+                  class="site-footer__team-icon"
+                  src="/icons/TeamIcon.png"
+                  alt="Production Team"
+                  loading="lazy"
+                />
+              </div>
             </div>
           </section>
-
-          <div class="site-footer__team" aria-label="StepSafe team">
-            <img src="/icons/TeamIcon.png" alt="StepSafe team icon" />
-            <img src="/icons/TeamNameIcon.png" alt="StepSafe team" />
-          </div>
         </div>
       </footer>
     </div>
@@ -1648,6 +1664,8 @@ async function unlockSite() {
 
 :global(html),
 :global(body) {
+  max-width: 100%;
+  overflow-x: hidden;
   scroll-behavior: smooth;
   scroll-snap-type: y mandatory;
 }
@@ -1661,9 +1679,11 @@ async function unlockSite() {
 .flow-wrapper {
   display: grid;
   gap: 0;
+  max-width: 100%;
   opacity: 1;
   padding-top: 76px;
   position: relative;
+  width: 100%;
   z-index: 1;
   transition: opacity 0.2s ease;
 }
@@ -2842,6 +2862,7 @@ h1 {
   display: grid;
   gap: 8px;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .resource-title {
@@ -3108,12 +3129,12 @@ h1 {
   background: #1c2b1e;
   border-top: 0;
   color: #f2efe8;
-  padding: 44px 0 46px;
+  padding: 35px 0 37px;
 }
 
 .site-footer__inner {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .site-footer__brand {
@@ -3176,6 +3197,16 @@ h1 {
   min-height: 35px;
   padding: 6px 14px;
   text-decoration: none;
+  word-break: break-word;
+}
+
+.site-footer__link--button {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .site-footer__link:hover,
@@ -3193,19 +3224,23 @@ h1 {
 .site-footer__team {
   align-items: center;
   display: inline-flex;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-end;
+  margin-top: 8px;
 }
 
-.site-footer__team img:first-child {
-  border-radius: 999px;
-  height: 40px;
-  object-fit: cover;
-  width: 40px;
+.site-footer__team-label {
+  color: #f2efe8;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
-.site-footer__team img:last-child {
-  height: 22px;
+.site-footer__team-icon {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  display: block;
+  height: 46px;
   object-fit: contain;
   width: auto;
 }
@@ -3603,7 +3638,7 @@ h1 {
   .preview-band,
   .panel,
   .site-footer {
-    padding: 42px 0;
+    padding: 34px 0;
   }
 
   .site-footer__links {
