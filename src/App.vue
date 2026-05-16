@@ -1,10 +1,18 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { DotLottieVue } from '@lottiefiles/dotlottie-vue'
-import { AlertTriangle, ArrowRight, BookOpen, LifeBuoy, ShieldCheck } from 'lucide-vue-next'
+import { ArrowRight, BookOpen, LifeBuoy, ShieldCheck } from 'lucide-vue-next'
 import ResultPanel from './components/ResultPanel.vue'
 import SubmissionPanel from './components/SubmissionPanel.vue'
-import { analyzeTextContentByBackend, extractTextFromSubmission, lookupAbnByBackend } from './services/scamAnalysisEngine'
+import InsightsPanel from './components/InsightsPanel.vue'
+import ScamSimulation from './components/ScamSimulation.vue'
+import ScamTypeQuiz from './components/ScamTypeQuiz.vue'
+import {
+  analyzeTextContentByBackend,
+  extractTextFromSubmission,
+  lookupAbnByBackend,
+} from './services/scamAnalysisEngine'
+import { scamTypeMeta } from './constants/scamSimulationData'
 
 const isAnalyzing = ref(false)
 const result = ref(null)
@@ -29,7 +37,16 @@ const abnResults = ref([])
 const abnLoading = ref(false)
 const abnError = ref('')
 const confirmedAbn = ref(null)
+const SITE_PASSWORD = (import.meta.env.VITE_SITE_PASSWORD || '').trim()
+const SITE_PASSWORD_SESSION_KEY = 'stepsafe-site-password-auth'
+const requiresSitePassword = computed(() => Boolean(SITE_PASSWORD))
+const isSiteAuthorized = ref(!SITE_PASSWORD)
+const sitePasswordInput = ref('')
+const sitePasswordError = ref('')
 const NAV_SCROLL_GAP = 18
+const NAV_SCROLL_LIFT = 0
+const LEARN_SCROLL_SETTLE_MS = 120
+const LEARN_BUTTON_EXTRA_GAP = -18
 const CHECK_SCAM_TARGET_ID = 'check-scam-panel'
 const EXTRACTED_PREVIEW_MAX_CHARS = 420
 const SCROLL_SECTION_IDS = [
@@ -53,6 +70,7 @@ let particleReduceMotionQuery = null
 let particleReduceMotionHandler = null
 let particleResizeHandler = null
 let stageMotionFrame = null
+let hasPageShellInitialized = false
 
 const heroParticleState = {
   canvas: null,
@@ -74,6 +92,14 @@ const primarySections = [
   { label: 'Insights', id: 'insights-section' },
   { label: 'Learn', id: 'learn-section' },
   { label: 'Support', id: 'support-section' },
+]
+
+const learnScenarioOptions = [
+  { key: 'task_based', label: 'Task-based job scam', icon: '📋' },
+  { key: 'phishing', label: 'Phishing recruiter scam', icon: '🎣' },
+  { key: 'financial_fraud', label: 'Fake payroll / upfront fee scam', icon: '💸' },
+  { key: 'identity_scam', label: 'Identity document harvesting scam', icon: '🪪' },
+  { key: 'investment', label: 'Job-to-investment hybrid scam', icon: '📈' },
 ]
 
 const quickTips = [
@@ -202,11 +228,11 @@ const footerFriendLinks = [
 ]
 
 const footerProductLinks = [
-  { label: 'Home', href: '#home-section' },
-  { label: 'Check Scam', href: '#check-section' },
-  { label: 'Insights', href: '#insights-section' },
-  { label: 'Learn', href: '#learn-section' },
-  { label: 'Support', href: '#support-section' },
+  { label: 'Home', sectionId: 'home-section' },
+  { label: 'Check Scam', sectionId: CHECK_SCAM_TARGET_ID },
+  { label: 'Insights', sectionId: 'insights-section' },
+  { label: 'Learn', sectionId: 'learn-section' },
+  { label: 'Support', sectionId: 'support-section' },
 ]
 
 const footerLegalLinks = [
@@ -214,12 +240,118 @@ const footerLegalLinks = [
   { label: 'Terms', href: '#' },
 ]
 
+const learnScamType = ref('task_based')
+const learnStep = ref('entry')
+const learnCompletion = ref({})
+const learnSectionRef = ref(null)
+const learnQuizResult = ref(null)
+
+const learnMeta = computed(
+  () => scamTypeMeta[learnScamType.value] || { label: 'Unknown', tone: '' },
+)
+
+function handleQuizComplete(payload) {
+  if (!payload?.type) return
+  learnScamType.value = payload.type
+  learnQuizResult.value = payload
+  learnStep.value = 'quiz_result'
+  persistLearnState({ step: 'quiz_result', scamType: payload.type, quizResult: payload })
+  scrollToLearn()
+}
+
+function persistLearnState(update) {
+  try {
+    const current = JSON.parse(localStorage.getItem('stepsafe_learn_state') || '{}')
+    const next = { ...current, scamType: learnScamType.value, ...update }
+    localStorage.setItem('stepsafe_learn_state', JSON.stringify(next))
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function loadLearnState() {
+  try {
+    const state = JSON.parse(localStorage.getItem('stepsafe_learn_state') || '{}')
+    if (state?.scamType) learnScamType.value = state.scamType
+    if (state?.quizResult) learnQuizResult.value = state.quizResult
+    if (state?.step === 'walkthrough') learnStep.value = 'walkthrough'
+    else if (state?.step) learnStep.value = state.step
+    if (state?.completedByType) learnCompletion.value = state.completedByType
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function getStaticOffsetTop(node) {
+  let offset = 0
+  let current = node
+  while (current instanceof HTMLElement) {
+    offset += current.offsetTop
+    current = current.offsetParent
+  }
+  return offset
+}
+
+function scrollToLearn(extraGap = 0) {
+  const targetId = learnStep.value === 'entry' ? 'learn-core-anchor' : 'learn-workflow-anchor'
+  const anchor = document.getElementById(targetId)
+  if (!(anchor instanceof HTMLElement)) return
+  const header = document.querySelector('.top-strip')
+  const headerHeight = header instanceof HTMLElement ? header.offsetHeight : 0
+  const stickyTopInset =
+    header instanceof HTMLElement
+      ? Number.parseFloat(window.getComputedStyle(header).top || '0') || 0
+      : 0
+  const dynamicGap = NAV_SCROLL_GAP + extraGap
+  const top =
+    getStaticOffsetTop(anchor) - headerHeight - stickyTopInset - dynamicGap - NAV_SCROLL_LIFT
+  window.scrollTo({ top, behavior: 'smooth' })
+}
+
+function startLearnQuiz() {
+  learnStep.value = 'quiz'
+  persistLearnState({ step: 'quiz' })
+  scrollToLearnAfterRender(LEARN_BUTTON_EXTRA_GAP)
+}
+
+function scrollToLearnAfterRender(extraGap = 0) {
+  nextTick(() => {
+    scrollToLearn(extraGap)
+    window.setTimeout(() => {
+      scrollToLearn(extraGap)
+    }, LEARN_SCROLL_SETTLE_MS)
+  })
+}
+
+function startWalkthroughDirectly() {
+  learnQuizResult.value = null
+  learnStep.value = 'walkthrough'
+  persistLearnState({ step: 'walkthrough', quizResult: null })
+  scrollToLearnAfterRender(LEARN_BUTTON_EXTRA_GAP)
+}
+
+function openWalkthroughFromQuiz() {
+  learnStep.value = 'walkthrough'
+  persistLearnState({ step: 'walkthrough' })
+  scrollToLearnAfterRender(LEARN_BUTTON_EXTRA_GAP)
+}
+
+function backToWorkflowChoice() {
+  learnStep.value = 'entry'
+  persistLearnState({ step: 'entry' })
+  scrollToLearn()
+}
+
 const showResult = computed(() => result.value !== null)
 
 let revealObserver = null
 
 function scrollToSection(sectionId) {
-  const node = document.getElementById(sectionId)
+  const remap = {
+    'learn-section': 'learn-core-anchor',
+    'check-section': 'check-scam-panel',
+  }
+  const node = document.getElementById(remap[sectionId] || sectionId)
   if (!node) return
 
   const header = document.querySelector('.top-strip')
@@ -229,13 +361,14 @@ function scrollToSection(sectionId) {
       ? Number.parseFloat(window.getComputedStyle(header).top || '0') || 0
       : 0
   const top =
-    node.getBoundingClientRect().top +
-    window.scrollY -
-    headerHeight -
-    stickyTopInset -
-    NAV_SCROLL_GAP
+    getStaticOffsetTop(node) - headerHeight - stickyTopInset - NAV_SCROLL_GAP - NAV_SCROLL_LIFT
 
   window.scrollTo({ top, behavior: 'smooth' })
+}
+
+function setLearnScenario(typeKey) {
+  learnScamType.value = typeKey
+  persistLearnState({ scamType: typeKey })
 }
 
 function navigateToSection(sectionId) {
@@ -249,6 +382,17 @@ function navigateToSection(sectionId) {
     isPageFading.value = false
   }, 200)
   scrollToSection(sectionId)
+}
+
+function handleFooterProductNavigation(item) {
+  if (!item?.sectionId) return
+
+  if (item.sectionId === CHECK_SCAM_TARGET_ID || item.sectionId === 'check-section') {
+    goToCheckScam()
+    return
+  }
+
+  navigateToSection(item.sectionId)
 }
 
 function goToCheckScam() {
@@ -574,21 +718,13 @@ function initHeroParticles() {
   }
 }
 
-onMounted(() => {
-  particleReduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
-  particleReduceMotionHandler = () => initHeroParticles()
-  particleResizeHandler = () => resizeHeroParticleCanvas()
+onMounted(async () => {
+  restoreSiteAuthorization()
 
-  particleReduceMotionQuery.addEventListener('change', particleReduceMotionHandler)
-  window.addEventListener('resize', particleResizeHandler)
-
-  initHeroParticles()
-  initRevealObserver()
-  initStatsObserver()
-  updateSnapStageMotion()
-  window.addEventListener('keydown', handleGlobalKeydown)
-  window.addEventListener('scroll', handleWindowScroll, { passive: true })
-  handleWindowScroll()
+  if (isSiteAuthorized.value) {
+    await nextTick()
+    initializePageShell()
+  }
 })
 
 watch(showResult, async (visible) => {
@@ -625,34 +761,7 @@ watch(showResult, async (visible) => {
 })
 
 onBeforeUnmount(() => {
-  if (revealObserver) {
-    revealObserver.disconnect()
-  }
-
-  window.removeEventListener('keydown', handleGlobalKeydown)
-  window.removeEventListener('scroll', handleWindowScroll)
-
-  if (statsObserver) {
-    statsObserver.disconnect()
-  }
-
-  if (pageFadeTimer) {
-    clearTimeout(pageFadeTimer)
-  }
-
-  if (highlightTimer) {
-    clearTimeout(highlightTimer)
-  }
-
-  stopHeroParticles()
-
-  if (particleReduceMotionQuery && particleReduceMotionHandler) {
-    particleReduceMotionQuery.removeEventListener('change', particleReduceMotionHandler)
-  }
-
-  if (particleResizeHandler) {
-    window.removeEventListener('resize', particleResizeHandler)
-  }
+  teardownPageShell()
 })
 
 async function handleSubmission(payload) {
@@ -721,10 +830,130 @@ function clearAbn() {
 function confirmAbn(record) {
   confirmedAbn.value = record
 }
+
+function restoreSiteAuthorization() {
+  if (!requiresSitePassword.value || typeof window === 'undefined') {
+    isSiteAuthorized.value = true
+    return
+  }
+
+  isSiteAuthorized.value =
+    window.sessionStorage.getItem(SITE_PASSWORD_SESSION_KEY) === 'granted'
+}
+
+function initializePageShell() {
+  if (hasPageShellInitialized || !isSiteAuthorized.value) return
+
+  hasPageShellInitialized = true
+  particleReduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+  particleReduceMotionHandler = () => initHeroParticles()
+  particleResizeHandler = () => resizeHeroParticleCanvas()
+
+  particleReduceMotionQuery.addEventListener('change', particleReduceMotionHandler)
+  window.addEventListener('resize', particleResizeHandler)
+
+  initHeroParticles()
+  initRevealObserver()
+  initStatsObserver()
+  loadLearnState()
+  updateSnapStageMotion()
+  window.addEventListener('keydown', handleGlobalKeydown)
+  window.addEventListener('scroll', handleWindowScroll, { passive: true })
+  handleWindowScroll()
+}
+
+function teardownPageShell() {
+  if (revealObserver) {
+    revealObserver.disconnect()
+  }
+
+  window.removeEventListener('keydown', handleGlobalKeydown)
+  window.removeEventListener('scroll', handleWindowScroll)
+
+  if (statsObserver) {
+    statsObserver.disconnect()
+  }
+
+  if (pageFadeTimer) {
+    clearTimeout(pageFadeTimer)
+  }
+
+  if (highlightTimer) {
+    clearTimeout(highlightTimer)
+  }
+
+  stopHeroParticles()
+
+  if (particleReduceMotionQuery && particleReduceMotionHandler) {
+    particleReduceMotionQuery.removeEventListener('change', particleReduceMotionHandler)
+  }
+
+  if (particleResizeHandler) {
+    window.removeEventListener('resize', particleResizeHandler)
+  }
+
+  hasPageShellInitialized = false
+}
+
+async function unlockSite() {
+  if (!requiresSitePassword.value) {
+    isSiteAuthorized.value = true
+    return
+  }
+
+  if (sitePasswordInput.value !== SITE_PASSWORD) {
+    sitePasswordError.value = 'Incorrect password. Please try again.'
+    return
+  }
+
+  sitePasswordError.value = ''
+  isSiteAuthorized.value = true
+  window.sessionStorage.setItem(SITE_PASSWORD_SESSION_KEY, 'granted')
+  await nextTick()
+  initializePageShell()
+}
 </script>
 
 <template>
-  <main id="home" class="page-shell">
+  <section
+    v-if="requiresSitePassword && !isSiteAuthorized"
+    class="site-password-gate"
+    aria-label="Protected site access"
+  >
+    <div class="site-password-card">
+      <span class="site-password-card__eyebrow">Private preview</span>
+      <h1>Enter password to access StepSafe</h1>
+      <p>
+        This site is password-protected to reduce casual scraping and unauthorized access while
+        the project is being reviewed.
+      </p>
+
+      <form class="site-password-form" @submit.prevent="unlockSite">
+        <label class="site-password-form__label" for="site-password-input">
+          Site password
+        </label>
+        <input
+          id="site-password-input"
+          v-model="sitePasswordInput"
+          class="site-password-form__input"
+          type="password"
+          autocomplete="current-password"
+          placeholder="Enter password"
+          @input="sitePasswordError = ''"
+        />
+
+        <p v-if="sitePasswordError" class="site-password-form__error" role="alert">
+          {{ sitePasswordError }}
+        </p>
+
+        <button type="submit" class="site-password-form__button">
+          Unlock site
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <main v-else id="home" class="page-shell">
     <header
       class="top-strip"
       :class="{ 'top-strip--elevated': isNavElevated }"
@@ -732,8 +961,8 @@ function confirmAbn(record) {
     >
       <div class="top-strip__inner">
         <a class="brand-home" href="#home-section" aria-label="Go to Home section">
-          <img src="/icons/stepsafe_logo.svg" alt="StepSafe" />
-          <span>StepSafe</span>
+          <img src="/icons/stepsafe_logo.svg" alt="JobSafer" />
+          <span>JobSafer</span>
         </a>
 
         <nav class="top-nav-desktop" aria-label="Primary navigation">
@@ -746,6 +975,17 @@ function confirmAbn(record) {
             Home
           </button>
           <button
+            type="button"
+            class="top-nav-link"
+            :class="{
+              'top-nav-link--active':
+                activeNavId === CHECK_SCAM_TARGET_ID || activeNavId === 'check-section',
+            }"
+            @click="goToCheckScam"
+          >
+            Check scam
+          </button>
+          <button
             v-for="section in primarySections"
             :key="`desktop-${section.id}`"
             type="button"
@@ -754,17 +994,6 @@ function confirmAbn(record) {
             @click="navigateToSection(section.id)"
           >
             {{ section.label }}
-          </button>
-          <button
-            type="button"
-            class="top-nav-cta"
-            :class="{
-              'top-nav-cta--active':
-                activeNavId === CHECK_SCAM_TARGET_ID || activeNavId === 'check-section',
-            }"
-            @click="goToCheckScam"
-          >
-            Check scam
           </button>
         </nav>
 
@@ -794,9 +1023,7 @@ function confirmAbn(record) {
             </button>
 
             <div class="menu-group">
-              <button type="button" class="menu-link menu-link--check" @click="goToCheckScam">
-                Check Scam
-              </button>
+              <button type="button" class="menu-link" @click="goToCheckScam">Check Scam</button>
               <div class="menu-subactions" role="group" aria-label="Check scam quick actions">
                 <button
                   v-for="action in topActions"
@@ -833,7 +1060,7 @@ function confirmAbn(record) {
         <canvas ref="heroParticlesCanvas" class="hero-particles" aria-hidden="true"></canvas>
         <div class="container-shell hero-band__inner">
           <div class="hero-copy">
-            <p class="hero-eyebrow">StepSafe Employment Scam Alert</p>
+            <p class="hero-eyebrow">JobSafer Employment Scam Alert</p>
             <h1>
               Spot job
               <span class="hero-wordmark"
@@ -905,7 +1132,7 @@ function confirmAbn(record) {
 
       <section class="how-it-works section-c section-fade section-fade--how">
         <div class="container-shell">
-          <h2 class="section-title">How StepSafe Works</h2>
+          <h2 class="section-title">How JobSafer Works</h2>
           <div class="how-grid">
             <svg
               class="how-grid__connector"
@@ -1107,21 +1334,7 @@ function confirmAbn(record) {
         aria-label="Insights section"
       >
         <div class="container-shell">
-          <h2 class="section-title">Insights</h2>
-          <p class="section-copy copy-block">
-            Weekly trends show where scam activity is rising. Use this section to prioritize
-            warnings.
-          </p>
-          <div class="preview-placeholder" role="status" aria-live="polite">
-            <p class="preview-placeholder__subtitle">
-              <em>Scam scripts and tactics - arriving in Iteration 2</em>
-            </p>
-            <div class="preview-placeholder__grid" aria-hidden="true">
-              <span class="preview-placeholder__card"></span>
-              <span class="preview-placeholder__card"></span>
-              <span class="preview-placeholder__card"></span>
-            </div>
-          </div>
+          <InsightsPanel />
         </div>
       </section>
 
@@ -1129,42 +1342,102 @@ function confirmAbn(record) {
         id="learn-section"
         class="panel snap-stage section-b section-fade section-fade--learn reveal-on-scroll"
         aria-label="Learn section"
+        ref="learnSectionRef"
       >
         <div class="container-shell">
-          <h2 class="section-title">Learn</h2>
-          <p class="section-copy copy-block">
-            Learn common scripts used in fake employment outreach and how to challenge them.
-          </p>
-          <div class="preview-placeholder" role="status" aria-live="polite">
-            <div class="feature-preview-grid" role="status" aria-live="polite">
-              <article
-                class="feature-preview feature-preview--learn reveal-on-scroll reveal-fade-up"
-                style="--reveal-delay: 0ms"
-              >
-                <BookOpen :size="48" aria-hidden="true" />
-                <h3>Script breakdowns</h3>
-                <span>Coming in Iteration 2</span>
-              </article>
-              <article
-                class="feature-preview feature-preview--learn reveal-on-scroll reveal-fade-up"
-                style="--reveal-delay: 120ms"
-              >
-                <ShieldCheck :size="48" aria-hidden="true" />
-                <h3>Scam timeline maps</h3>
-                <span>Coming in Iteration 2</span>
-              </article>
-              <article
-                class="feature-preview feature-preview--learn reveal-on-scroll reveal-fade-up"
-                style="--reveal-delay: 240ms"
-              >
-                <AlertTriangle :size="48" aria-hidden="true" />
-                <h3>Phrase libraries</h3>
-                <span>Coming in Iteration 2</span>
-              </article>
+          <div id="learn-core-anchor" class="learn-hero">
+            <div class="learn-hero__icon" aria-hidden="true">
+              <img src="https://img.icons8.com/cotton/64/combo-chart--v1.png" alt="" />
             </div>
-            <p class="feature-preview-note">
-              <em>Scam scripts and tactics - arriving in Iteration 2</em>
-            </p>
+            <div class="learn-hero__content">
+              <p class="learn-hero__eyebrow">🧠 Read the script before the scammer reads you.</p>
+              <h3>Scam Progression Simulator</h3>
+              <p>
+                Explore real-world scam scripts and practice safe decisions in a guided simulator.
+              </p>
+            </div>
+          </div>
+
+          <div id="learn-workflow-anchor" class="learn-flow">
+            <div v-if="learnStep === 'entry'" class="learn-entry">
+              <p class="learn-entry__eyebrow">🎮 Pick your mission</p>
+              <h4>Ready to outsmart this scam with Alex?</h4>
+              <p class="learn-entry__intro">
+                Choose one scenario. Then either jump straight into the walkthrough, or quickly test
+                scam type first.
+              </p>
+              <p class="learn-entry__microhint">
+                ✨ Tip: You only need 2–3 minutes to complete one run.
+              </p>
+              <div class="learn-entry__funline" aria-hidden="true">
+                <span>🛡️ Pattern radar on</span>
+                <span>⚡ Pressure meter live</span>
+                <span>🎯 Beat the script</span>
+              </div>
+              <div class="learn-scenario-grid" role="list" aria-label="Scam scenario options">
+                <button
+                  v-for="option in learnScenarioOptions"
+                  :key="option.key"
+                  type="button"
+                  class="scenario-chip"
+                  :class="{ 'scenario-chip--active': learnScamType === option.key }"
+                  @click="setLearnScenario(option.key)"
+                >
+                  <span class="scenario-chip__label">
+                    <b>{{ option.label }}</b>
+                    <i aria-hidden="true">{{ option.icon }}</i>
+                  </span>
+                </button>
+              </div>
+              <button
+                class="learn-primary learn-primary--full"
+                type="button"
+                @click="startWalkthroughDirectly"
+              >
+                🚀 Start walkthrough now
+              </button>
+              <button
+                class="learn-secondary learn-secondary--full"
+                type="button"
+                @click="startLearnQuiz"
+              >
+                🧪 Test scam type first
+              </button>
+            </div>
+
+            <div v-else-if="learnStep === 'quiz'" class="learn-quiz-only">
+              <ScamTypeQuiz @complete="handleQuizComplete" />
+              <button
+                class="learn-secondary learn-secondary--full learn-skip-link"
+                type="button"
+                @click="startWalkthroughDirectly"
+              >
+                Skip to walkthrough →
+              </button>
+            </div>
+
+            <div v-else-if="learnStep === 'quiz_result'" class="learn-quiz-complete">
+              <p class="learn-cover__eyebrow">Scam Type Finder result</p>
+              <h3>{{ learnMeta.label }}</h3>
+              <p>{{ learnMeta.tone }}</p>
+              <button
+                class="learn-primary learn-primary--full"
+                type="button"
+                @click="openWalkthroughFromQuiz"
+              >
+                See how this scam works — start walkthrough →
+              </button>
+            </div>
+
+            <ScamSimulation
+              v-else
+              :scenario-type="learnScamType"
+              :detected-label="learnMeta.label"
+              :detected-tone="learnMeta.tone"
+              :show-detected-result="!!learnQuizResult"
+              @restart="backToWorkflowChoice"
+              @exit="backToWorkflowChoice"
+            />
           </div>
         </div>
       </section>
@@ -1186,7 +1459,7 @@ function confirmAbn(record) {
             >
               <LifeBuoy :size="48" aria-hidden="true" />
               <h3>Recovery playbooks</h3>
-              <span>Coming in Iteration 2</span>
+              <span>Coming in Iteration 3</span>
             </article>
             <article
               class="feature-preview feature-preview--support reveal-on-scroll reveal-fade-up"
@@ -1194,7 +1467,7 @@ function confirmAbn(record) {
             >
               <ShieldCheck :size="48" aria-hidden="true" />
               <h3>Verification toolkit</h3>
-              <span>Coming in Iteration 2</span>
+              <span>Coming in Iteration 3</span>
             </article>
             <article
               class="feature-preview feature-preview--support reveal-on-scroll reveal-fade-up"
@@ -1202,11 +1475,11 @@ function confirmAbn(record) {
             >
               <BookOpen :size="48" aria-hidden="true" />
               <h3>Reporting guides</h3>
-              <span>Coming in Iteration 2</span>
+              <span>Coming in Iteration 3</span>
             </article>
           </div>
           <p class="feature-preview-note">
-            <em>Scam scripts and tactics - arriving in Iteration 2</em>
+            <em>Scam scripts and tactics - arriving in Iteration 3</em>
           </p>
         </div>
       </section>
@@ -1214,8 +1487,8 @@ function confirmAbn(record) {
       <footer class="site-footer" aria-label="Site information">
         <div class="container-shell site-footer__inner">
           <div class="site-footer__brand">
-            <img src="/icons/stepsafe_logo.svg" alt="StepSafe" />
-            <span>StepSafe</span>
+            <img src="/icons/stepsafe_logo.svg" alt="JobSafer" />
+            <span>JobSafer</span>
           </div>
           <p class="site-footer__summary">Built for scam awareness and recovery.</p>
 
@@ -1223,14 +1496,15 @@ function confirmAbn(record) {
             <div class="site-footer__col site-footer__col--product">
               <p class="site-footer__heading">Product</p>
               <div class="site-footer__link-list">
-                <a
+                <button
                   v-for="item in footerProductLinks"
-                  :key="item.href"
-                  class="site-footer__link"
-                  :href="item.href"
+                  :key="item.sectionId"
+                  type="button"
+                  class="site-footer__link site-footer__link--button"
+                  @click="handleFooterProductNavigation(item)"
                 >
                   <span>{{ item.label }}</span>
-                </a>
+                </button>
               </div>
             </div>
 
@@ -1265,14 +1539,18 @@ function confirmAbn(record) {
                   <span>{{ item.label }}</span>
                 </a>
               </div>
-              <p class="site-footer__meta">©2026 StepSafe</p>
+              <p class="site-footer__meta">©2026 JobSafer</p>
+              <div class="site-footer__team" aria-label="Production Team">
+                <span class="site-footer__team-label">Production Team</span>
+                <img
+                  class="site-footer__team-icon"
+                  src="/icons/TeamIcon.png"
+                  alt="Production Team"
+                  loading="lazy"
+                />
+              </div>
             </div>
           </section>
-
-          <div class="site-footer__team" aria-label="StepSafe team">
-            <img src="/icons/TeamIcon.png" alt="StepSafe team icon" />
-            <img src="/icons/TeamNameIcon.png" alt="StepSafe team" />
-          </div>
         </div>
       </footer>
     </div>
@@ -1280,9 +1558,104 @@ function confirmAbn(record) {
 </template>
 
 <style scoped>
-.page-shell {
-  background: #f9f7f4;
+.site-password-gate {
+  align-items: center;
+  background:
+    radial-gradient(circle at top, rgba(31, 45, 107, 0.12), transparent 34%),
+    linear-gradient(180deg, #fdf5ec 0%, #f7efe5 100%);
+  color: #1a1a2a;
+  display: grid;
+  min-height: 100vh;
+  padding: 32px 20px;
+}
+
+.site-password-card {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(31, 45, 107, 0.12);
+  border-radius: 28px;
+  box-shadow: 0 24px 60px rgba(27, 46, 94, 0.12);
+  margin: 0 auto;
+  max-width: 540px;
+  padding: 32px;
+  width: min(100%, 540px);
+}
+
+.site-password-card__eyebrow {
+  color: #1f2d6b;
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+
+.site-password-card h1 {
+  color: #1f2d6b;
+  font-family: var(--ms-font-heading);
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  line-height: 1.05;
+  margin: 0 0 12px;
+}
+
+.site-password-card p {
   color: #6b7280;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.site-password-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.site-password-form__label {
+  color: #1f2d6b;
+  font-weight: 700;
+}
+
+.site-password-form__input {
+  background: #fffdfa;
+  border: 1px solid #d9d7d1;
+  border-radius: 16px;
+  color: #1a1a2a;
+  font-family: var(--ms-font-stack);
+  font-size: 1rem;
+  padding: 14px 16px;
+}
+
+.site-password-form__input:focus {
+  border-color: #1f2d6b;
+  box-shadow: 0 0 0 4px rgba(31, 45, 107, 0.12);
+  outline: none;
+}
+
+.site-password-form__error {
+  color: #b42318;
+  font-size: 0.92rem;
+  margin: 0;
+}
+
+.site-password-form__button {
+  background: #1f2d6b;
+  border: 0;
+  border-radius: 999px;
+  color: white;
+  cursor: pointer;
+  font-family: var(--ms-font-stack);
+  font-size: 1rem;
+  font-weight: 800;
+  padding: 14px 18px;
+}
+
+.site-password-form__button:hover {
+  background: #25357f;
+}
+
+.page-shell {
+  background: #fdf5ec;
+  color: #4b5563;
   min-height: 100vh;
   overflow-x: hidden;
   padding: 0;
@@ -1291,22 +1664,26 @@ function confirmAbn(record) {
 
 :global(html),
 :global(body) {
+  max-width: 100%;
+  overflow-x: hidden;
   scroll-behavior: smooth;
   scroll-snap-type: y mandatory;
 }
 
 .container-shell {
   margin: 0 auto;
-  max-width: 1200px;
-  padding: 0 48px;
+  max-width: 1280px;
+  padding: 0 32px;
 }
 
 .flow-wrapper {
   display: grid;
   gap: 0;
+  max-width: 100%;
   opacity: 1;
   padding-top: 76px;
   position: relative;
+  width: 100%;
   z-index: 1;
   transition: opacity 0.2s ease;
 }
@@ -1316,17 +1693,17 @@ function confirmAbn(record) {
 }
 
 .section-a {
-  background-color: #f9f7f4;
+  background-color: #fdf5ec;
   background-image: none;
 }
 
 .section-b {
-  background-color: #f2efe8;
+  background-color: #f7efe5;
   background-image: none;
 }
 
 .section-c {
-  background-color: #eaf7f3;
+  background-color: #fdf5ec;
   background-image: none;
 }
 
@@ -1352,12 +1729,12 @@ function confirmAbn(record) {
 }
 
 .section-fade--hero::after {
-  background: linear-gradient(to bottom, rgba(249, 247, 244, 0), #f9f7f4);
+  background: linear-gradient(to bottom, rgba(253, 245, 236, 0), #fdf5ec);
   bottom: -60px;
 }
 
 .section-fade--stats::after {
-  background: linear-gradient(to bottom, rgba(220, 38, 38, 0), #f2efe8);
+  background: linear-gradient(to bottom, rgba(220, 38, 38, 0), #f7efe5);
   bottom: -60px;
 }
 
@@ -1370,6 +1747,451 @@ function confirmAbn(record) {
 .section-fade--learn::after,
 .section-fade--support::after {
   display: none;
+}
+
+.learn-intro-copy {
+  margin-top: 0;
+  color: #6b7280;
+}
+
+.learn-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+  gap: 24px;
+  align-items: start;
+  padding: 20px 0 10px;
+}
+
+.learn-shell--review {
+  grid-template-columns: minmax(280px, 0.78fr) minmax(0, 1.22fr);
+}
+
+.learn-shell--intro {
+  grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.88fr);
+}
+
+.learn-hero {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 18px;
+  align-items: center;
+  padding: 18px;
+  border-radius: 20px;
+  background: #fffbf7;
+  border: 1px solid rgba(27, 46, 94, 0.12);
+  box-shadow: 0 12px 24px rgba(27, 46, 94, 0.08);
+  margin-bottom: 18px;
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+}
+
+.learn-hero__icon {
+  width: 76px;
+  height: 76px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: #fef2f2;
+  border: 1px solid #e5e2dc;
+}
+
+.learn-hero__icon img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+.learn-hero__eyebrow {
+  margin: 0 0 6px;
+  font-size: 0.82rem;
+  color: #1b2e5e;
+  font-weight: 700;
+}
+
+.learn-hero__content h3 {
+  margin: 0 0 8px;
+  font-size: clamp(1.6rem, 3.2vw, 2.2rem);
+  color: #1b2e5e;
+}
+
+.learn-hero__content {
+  padding-left: 6px;
+}
+
+.learn-hero__content p {
+  margin: 0;
+  color: #6b7280;
+  max-width: 64ch;
+}
+
+.learn-flow {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  transition:
+    opacity 0.2s ease,
+    transform 0.22s ease;
+}
+
+.learn-entry {
+  background: #fffbf7;
+  border: 1px solid rgba(27, 46, 94, 0.12);
+  border-radius: 18px;
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+  box-shadow: 0 12px 24px rgba(27, 46, 94, 0.08);
+}
+
+.learn-entry__eyebrow {
+  margin: 0;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #1b2e5e;
+  font-weight: 800;
+}
+
+.learn-entry h4 {
+  margin: 0;
+  color: #1b2e5e;
+  font-size: 1.2rem;
+}
+
+.learn-entry__intro {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.learn-entry__microhint {
+  margin: -2px 0 0;
+  color: #1f2d6b;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.learn-entry__funline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.learn-entry__funline span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: #1f2d6b;
+  background: #f0f4ff;
+  border: 1px solid rgba(27, 46, 94, 0.16);
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+
+.learn-scenario-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.scenario-chip {
+  text-align: left;
+  border: 1px solid rgba(27, 46, 94, 0.2);
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+  cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.scenario-chip:hover,
+.scenario-chip:focus-visible {
+  transform: translateY(-1px);
+  border-color: #1b2e5e;
+  box-shadow: 0 8px 14px rgba(27, 46, 94, 0.12);
+}
+
+.scenario-chip__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.scenario-chip__label i {
+  font-style: normal;
+  font-size: 1.1rem;
+}
+
+.scenario-chip__label b {
+  color: #1b2e5e;
+  font-weight: 700;
+  font-size: 0.9rem;
+  order: 1;
+}
+
+.scenario-chip__label i {
+  order: 2;
+}
+
+.scenario-chip--active {
+  border-color: #1b2e5e;
+  background: #f0f4ff;
+  box-shadow: 0 0 0 2px rgba(27, 46, 94, 0.12);
+}
+
+.learn-primary--full,
+.learn-secondary--full {
+  width: 100%;
+}
+
+.learn-skip-link {
+  margin-top: 8px;
+}
+
+.learn-cover,
+.learn-quiz-complete {
+  background: #fffbf7;
+  border-radius: 22px;
+  border: 1px solid rgba(27, 46, 94, 0.12);
+  padding: 22px;
+  display: grid;
+  gap: 14px;
+  box-shadow: 0 16px 32px rgba(27, 46, 94, 0.08);
+}
+
+.learn-cover__eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #1b2e5e;
+}
+
+.learn-cover__steps {
+  display: grid;
+  gap: 10px;
+}
+
+.learn-step {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 10px;
+  align-items: center;
+  background: #f7efe5;
+  border-radius: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(27, 46, 94, 0.08);
+}
+
+.learn-step span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e8412a;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.learn-cover__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.learn-primary,
+.learn-secondary {
+  border: 0;
+  border-radius: 14px;
+  padding: 10px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition:
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.learn-primary::after,
+.learn-secondary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(27, 46, 94, 0) 0%,
+    rgba(27, 46, 94, 0.22) 55%,
+    rgba(232, 65, 42, 0.32) 100%
+  );
+  transform: translateX(-100%);
+  transition: transform 0.35s ease;
+}
+
+.learn-primary {
+  background: #1b2e5e;
+  color: #ffffff;
+  box-shadow: 0 10px 20px rgba(27, 46, 94, 0.18);
+}
+
+.learn-primary:hover,
+.learn-primary:focus-visible {
+  background: #13244a;
+  box-shadow: 0 14px 24px rgba(27, 46, 94, 0.22);
+}
+
+.learn-primary:active {
+  box-shadow: 0 10px 18px rgba(27, 46, 94, 0.18);
+}
+
+.learn-secondary {
+  background: #fffbf7;
+  color: #1b2e5e;
+  border: 1px solid rgba(27, 46, 94, 0.18);
+}
+
+.learn-secondary:hover,
+.learn-secondary:focus-visible {
+  background: #f7efe5;
+}
+
+.learn-secondary:active {
+  box-shadow: 0 8px 14px rgba(27, 46, 94, 0.14);
+}
+
+.learn-primary:hover::after,
+.learn-primary:focus-visible::after,
+.learn-secondary:hover::after,
+.learn-secondary:focus-visible::after {
+  transform: translateX(0);
+}
+
+.learn-lock {
+  background: #fffbf7;
+  border-radius: 18px;
+  border: 1px dashed rgba(27, 46, 94, 0.28);
+  padding: 18px;
+  display: grid;
+  gap: 12px;
+  color: #4b5563;
+  box-shadow: 0 12px 24px rgba(27, 46, 94, 0.06);
+}
+
+.learn-lock__image {
+  width: 100%;
+  border-radius: 16px;
+  display: block;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border: 1px solid rgba(27, 46, 94, 0.08);
+}
+
+.learn-lock__eyebrow {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.7rem;
+  color: #1b2e5e;
+  font-weight: 700;
+}
+
+.learn-quiz,
+.learn-simulation {
+  display: grid;
+  gap: 16px;
+}
+
+.learn-header {
+  background: #fffbf7;
+  color: #1b2e5e;
+  border-radius: 18px;
+  padding: 18px;
+  border: 1px solid rgba(27, 46, 94, 0.12);
+  box-shadow: 0 14px 28px rgba(27, 46, 94, 0.08);
+}
+
+.learn-header--complete {
+  box-shadow:
+    0 0 0 2px rgba(232, 65, 42, 0.24),
+    0 14px 28px rgba(27, 46, 94, 0.08);
+}
+
+.learn-kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.7rem;
+  color: #0d9488;
+  font-weight: 700;
+}
+
+.learn-header h3 {
+  margin: 8px 0 6px;
+  font-size: 1.4rem;
+}
+
+.learn-copy {
+  margin: 0;
+  color: #6b7280;
+}
+
+.learn-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  background: rgba(232, 65, 42, 0.1);
+  color: #1b2e5e;
+  border: 1px solid rgba(232, 65, 42, 0.2);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+}
+
+.learn-quiz-complete__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.learn-quiz-complete__hint {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.learn-complete {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fff7df;
+  border: 1px solid rgba(232, 65, 42, 0.16);
+  color: #1a1a2a;
+}
+
+@media (max-width: 980px) {
+  .learn-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .learn-shell--review,
+  .learn-shell--intro {
+    grid-template-columns: 1fr;
+  }
 }
 
 .copy-block {
@@ -1398,8 +2220,8 @@ function confirmAbn(record) {
   gap: 14px;
   margin: 0 auto;
   max-width: 1200px;
-  min-height: 43px;
-  padding: 7px 24px;
+  min-height: 35px;
+  padding: 4px 24px;
   position: relative;
   transition: box-shadow 0.24s ease;
   width: calc(100% - 96px);
@@ -1411,12 +2233,15 @@ function confirmAbn(record) {
 
 .brand-home {
   align-items: center;
+  border-radius: 20px;
   color: #1f2d6b;
   display: inline-flex;
   font-size: 0.9rem;
   font-weight: 700;
   gap: 8px;
+  min-height: 35px;
   margin-right: 8px;
+  padding: 6px 12px;
   text-decoration: none;
 }
 
@@ -1443,7 +2268,7 @@ function confirmAbn(record) {
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 500;
-  min-height: 28px;
+  min-height: 35px;
   padding: 6px 14px;
   transition: all 200ms ease;
 }
@@ -1918,6 +2743,7 @@ h1 {
 }
 
 .info-grid {
+  background: #eaf7ea;
   padding: 68px 0 56px;
 }
 
@@ -2036,6 +2862,7 @@ h1 {
   display: grid;
   gap: 8px;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .resource-title {
@@ -2096,7 +2923,7 @@ h1 {
 .snap-stage {
   align-items: center;
   display: flex;
-  min-height: calc(100vh - 52px);
+  min-height: calc(100vh - 76px);
   overflow: clip;
   position: relative;
   --parallax-offset: 0px;
@@ -2181,10 +3008,11 @@ h1 {
 .flow-section--check {
   padding: 76px 0 56px;
   position: relative;
+  background: #f7fbff;
 }
 
 .flow-section--check::before {
-  background: linear-gradient(to bottom, rgba(242, 239, 232, 0), #f2efe8 78%);
+  background: linear-gradient(to bottom, rgba(247, 251, 255, 0), #f7fbff 78%);
   content: '';
   height: 40px;
   left: 0;
@@ -2194,7 +3022,7 @@ h1 {
 }
 
 .preview-band {
-  background: #f5f2ee;
+  background: #f4f9ff;
   border-bottom: 1px solid rgba(31, 45, 107, 0.16);
   border-top: 1px solid rgba(31, 45, 107, 0.16);
   overflow: hidden;
@@ -2301,12 +3129,12 @@ h1 {
   background: #1c2b1e;
   border-top: 0;
   color: #f2efe8;
-  padding: 44px 0 46px;
+  padding: 35px 0 37px;
 }
 
 .site-footer__inner {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .site-footer__brand {
@@ -2319,6 +3147,7 @@ h1 {
 
 .site-footer__summary {
   color: #f2efe8;
+  line-height: 1.5;
   margin: 0;
 }
 
@@ -2359,13 +3188,25 @@ h1 {
 }
 
 .site-footer__link {
+  align-items: center;
+  border-radius: 20px;
   color: #f2efe8;
-  display: inline-block;
+  display: inline-flex;
   font-size: 14px;
   line-height: 1.35;
-  min-height: 0;
-  padding: 0;
+  min-height: 35px;
+  padding: 6px 14px;
   text-decoration: none;
+  word-break: break-word;
+}
+
+.site-footer__link--button {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .site-footer__link:hover,
@@ -2383,19 +3224,23 @@ h1 {
 .site-footer__team {
   align-items: center;
   display: inline-flex;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-end;
+  margin-top: 8px;
 }
 
-.site-footer__team img:first-child {
-  border-radius: 999px;
-  height: 40px;
-  object-fit: cover;
-  width: 40px;
+.site-footer__team-label {
+  color: #f2efe8;
+  font-size: 0.8rem;
+  font-weight: 600;
 }
 
-.site-footer__team img:last-child {
-  height: 22px;
+.site-footer__team-icon {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  display: block;
+  height: 46px;
   object-fit: contain;
   width: auto;
 }
@@ -2651,8 +3496,8 @@ h1 {
   .top-strip__inner {
     border-radius: 20px;
     max-width: 100%;
-    min-height: 43px;
-    padding: 7px 16px;
+    min-height: 35px;
+    padding: 4px 14px;
     width: calc(100% - 48px);
   }
 
@@ -2672,6 +3517,10 @@ h1 {
   .hero-band__inner,
   .info-grid__inner,
   .feature-preview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .learn-scenario-grid {
     grid-template-columns: 1fr;
   }
 
@@ -2751,8 +3600,8 @@ h1 {
   }
 
   .top-strip__inner {
-    min-height: 43px;
-    padding: 7px 12px;
+    min-height: 35px;
+    padding: 4px 10px;
     width: calc(100% - 20px);
   }
 
@@ -2789,7 +3638,7 @@ h1 {
   .preview-band,
   .panel,
   .site-footer {
-    padding: 42px 0;
+    padding: 34px 0;
   }
 
   .site-footer__links {
