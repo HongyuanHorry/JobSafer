@@ -13,15 +13,7 @@ import { Line } from 'vue-chartjs'
 import { computed } from 'vue'
 import { formatMoney, formatNumber } from '../utils/chartFormatters.js'
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Tooltip,
-  Legend,
-  Title,
-)
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Title)
 
 const props = defineProps({
   scamType: {
@@ -70,13 +62,9 @@ const chartData = computed(() => ({
   ],
 }))
 
-const reportValues = computed(() =>
-  props.trendData.map((row) => Number(row.report_count || 0)),
-)
+const reportValues = computed(() => props.trendData.map((row) => Number(row.report_count || 0)))
 
-const lossValues = computed(() =>
-  props.trendData.map((row) => Number(row.total_loss || 0)),
-)
+const lossValues = computed(() => props.trendData.map((row) => Number(row.total_loss || 0)))
 
 function roundDown(value, step) {
   return Math.floor(value / step) * step
@@ -129,6 +117,10 @@ const chartOptions = computed(() => ({
     intersect: false,
   },
   plugins: {
+    animation: {
+      duration: 900,
+      easing: 'easeOutCubic',
+    },
     legend: {
       position: 'top',
       labels: {
@@ -230,13 +222,11 @@ const chartOptions = computed(() => ({
 </script>
 
 <template>
-  <section class="dual-trend-card">
+  <section class="dual-trend-card" :key="`${scamType}-${trendData.length}`">
     <div class="dual-trend-card__header">
       <div>
         <h3>Time-series trend chart</h3>
-        <p>
-          Report count and total financial loss for {{ scamType }} across available years.
-        </p>
+        <p>Report count and total financial loss for {{ scamType }} across available years.</p>
       </div>
 
       <span v-if="timePeriod" class="dual-trend-card__period">
@@ -248,12 +238,13 @@ const chartOptions = computed(() => ({
       No trend data available for this scam type
     </div>
 
-    <div v-else class="dual-trend-chart">
+    <div v-else class="dual-trend-chart dual-trend-chart--animated">
       <Line :data="chartData" :options="chartOptions" />
     </div>
 
     <p class="dual-trend-card__helper">
-      JobSafer helps users see whether selected scam type is becoming more common and whether losses are increasing over time.
+      This helps users see whether this scam type is becoming more common and whether losses are
+      increasing over time.
     </p>
   </section>
 </template>
@@ -298,11 +289,16 @@ const chartOptions = computed(() => ({
 }
 
 .dual-trend-chart {
-  background: var(--ms-color-surface-panel);
-  border: 1px solid var(--ms-color-border-default);
-  border-radius: 22px;
-  height: 420px;
-  padding: 18px;
+  background: #ffffff;
+  border: 1px solid #e5e2dc;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(26, 26, 42, 0.06);
+  height: 380px;
+  padding: 14px;
+}
+
+.dual-trend-chart--animated {
+  animation: trendChartIn 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .dual-trend-card__helper {
@@ -330,6 +326,24 @@ const chartOptions = computed(() => ({
 
   .dual-trend-chart {
     height: 360px;
+  }
+}
+
+@keyframes trendChartIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dual-trend-chart--animated {
+    animation: none !important;
   }
 }
 </style>
