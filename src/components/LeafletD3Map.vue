@@ -583,7 +583,9 @@ onBeforeUnmount(() => {
   box-shadow: 0 12px 30px rgba(44, 62, 140, 0.08);
   display: grid;
   gap: 16px;
-  max-height: 680px;
+  grid-template-rows: auto minmax(0, 1fr);
+  max-height: 735px;
+  min-height: 0;
   overflow: hidden;
   padding: 18px;
   position: sticky;
@@ -638,7 +640,9 @@ onBeforeUnmount(() => {
   gap: 10px;
   list-style: none;
   margin: 0;
+  min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 0;
   padding-right: 6px;
 }

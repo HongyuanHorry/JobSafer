@@ -206,7 +206,7 @@ onBeforeUnmount(() => {
     <article v-if="selectedView === 'location'" class="insights-card">
       <h3>Reported scam cases by location over time</h3>
       <p class="insights-muted">
-        Scam type: {{ selectedScamType }} · Circle size represents report count
+        Scam type: {{ selectedScamType }} | Time period: {{ timePeriod }}
       </p>
 
       <div v-if="!yearLocationData.length" class="empty-state">

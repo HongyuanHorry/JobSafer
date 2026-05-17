@@ -679,11 +679,7 @@ watch(
               Remove selected PDF
             </button>
           </div>
-          <p class="small-note">
-            PDF text extraction tries the backend PyMuPDF endpoint first, then falls back to local
-            reading.
-          </p>
-          <p class="small-note">Max size: 8MB. Encrypted PDFs may fail to parse.</p>
+          <p class="small-note">Max size: 8MB</p>
         </div>
 
         <section class="quick-controls" aria-label="Sample inputs and recent checks">

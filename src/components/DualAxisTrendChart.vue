@@ -253,7 +253,7 @@ const chartOptions = computed(() => ({
     </div>
 
     <p class="dual-trend-card__helper">
-      This helps users see whether this scam type is becoming more common and whether losses are increasing over time.
+      JobSafer helps users see whether selected scam type is becoming more common and whether losses are increasing over time.
     </p>
   </section>
 </template>
