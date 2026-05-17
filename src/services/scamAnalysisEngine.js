@@ -5,13 +5,16 @@ import {
   UNKNOWN_TYPE,
 } from '../constants/scamRules'
 
+import { devLog } from '../utils/clientSecurity.js'
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 const PYMUPDF_PARSE_ENDPOINT = `${API_BASE}/api/pymupdf/parse`
 const ANALYZE_ENDPOINT = `${API_BASE}/api/analyze`
 const ABN_LOOKUP_ENDPOINT = `${API_BASE}/api/abn/lookup`
 
-console.log('VITE_API_BASE_URL =', API_BASE)
-console.log('ABN_LOOKUP_ENDPOINT =', ABN_LOOKUP_ENDPOINT)
+if (import.meta.env.DEV) {
+  devLog('API base configured:', API_BASE ? 'yes' : 'empty (use Vite proxy or VITE_API_BASE_URL)')
+}
 
 function clampScore(score) {
   return Math.max(0, Math.min(100, score))
@@ -299,7 +302,15 @@ export async function analyzeTextContentByBackend(content, metadata = {}) {
     throw new Error(detail || `Analyze request failed with status ${response.status}`)
   }
 
-  return normalizeBackendResult(result)
+  const normalized = normalizeBackendResult(result)
+  if (metadata.inputType === 'link') {
+    const score = Number(normalized.riskScore) || 0
+    const tier = String(normalized.riskTier || '').toLowerCase()
+    const isLowRisk = tier === 'low' || score < 40
+    normalized.suspicious = !isLowRisk
+    normalized.binaryLabel = isLowRisk ? 'Not suspicious' : 'Suspicious'
+  }
+  return normalized
 }
 
 export async function lookupAbnByBackend(query) {
