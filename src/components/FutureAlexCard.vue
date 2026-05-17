@@ -36,7 +36,7 @@ const props = defineProps({
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: #7A9A82;
+  color: #0d9488;
   font-weight: 700;
 }
 

@@ -16,7 +16,6 @@ const props = defineProps({
 })
 
 const mapEl = ref(null)
-const isCompactViewport = ref(false)
 
 let map = null
 let svgLayer = null
@@ -153,32 +152,13 @@ function getRadius(value) {
     return 18
   }
 
-  const maxRadius = isCompactViewport.value ? 22 : 30
-  const minRadius = isCompactViewport.value ? 6 : 8
   const scale = d3
     .scaleSqrt()
     .domain([minValue, maxValue])
-    .range([minRadius, maxRadius])
+    .range([8, 30])
     .clamp(true)
 
   return scale(numericValue)
-}
-
-function syncCompactViewport() {
-  if (typeof window === 'undefined') return
-  isCompactViewport.value = window.innerWidth < 768
-}
-
-function applyMapViewportPadding() {
-  if (!map) return
-  const padding = isCompactViewport.value ? [36, 48] : [24, 32]
-  map.fitBounds(
-    [
-      [-44, 112],
-      [-10, 154],
-    ],
-    { padding, animate: false },
-  )
 }
 
 function formatRankingValue(state) {
@@ -200,9 +180,13 @@ function formatRankingSecondaryValue(state) {
 function renderD3Layer() {
   if (!map || !g) return
 
-  const points = rankedStates.value.map(getPoint).filter(Boolean)
+  const points = rankedStates.value
+    .map(getPoint)
+    .filter(Boolean)
 
-  const circles = g.selectAll('circle.scam-bubble').data(points, (d) => d.location)
+  const circles = g
+    .selectAll('circle.scam-bubble')
+    .data(points, (d) => d.location)
 
   circles.exit().remove()
 
@@ -211,20 +195,18 @@ function renderD3Layer() {
     .append('circle')
     .attr('class', 'scam-bubble')
     .attr('r', 0)
-    .attr('opacity', 0)
     .merge(circles)
     .transition()
-    .delay((_, index) => index * 55)
-    .duration(460)
-    .ease(d3.easeBackOut.overshoot(1.2))
+    .duration(350)
     .attr('cx', (d) => d.x)
     .attr('cy', (d) => d.y)
     .attr('r', (d) => getRadius(d.report_count))
-    .attr('opacity', 1)
     .attr('fill', (d) => getRiskColor(d).fill)
     .attr('stroke', (d) => getRiskColor(d).stroke)
 
-  const labels = g.selectAll('text.scam-map-label').data(points, (d) => d.location)
+  const labels = g
+    .selectAll('text.scam-map-label')
+    .data(points, (d) => d.location)
 
   labels.exit().remove()
 
@@ -233,17 +215,16 @@ function renderD3Layer() {
     .append('text')
     .attr('class', 'scam-map-label')
     .attr('text-anchor', 'middle')
-    .attr('opacity', 0)
     .merge(labels)
     .transition()
-    .delay((_, index) => index * 55 + 80)
-    .duration(360)
+    .duration(350)
     .attr('x', (d) => d.x)
     .attr('y', (d) => d.y + getRadius(d.report_count) + 14)
-    .attr('opacity', 1)
     .text((d) => d.location)
 
-  const tooltips = g.selectAll('title').data(points, (d) => d.location)
+  const tooltips = g
+    .selectAll('title')
+    .data(points, (d) => d.location)
 
   tooltips.exit().remove()
 
@@ -264,15 +245,12 @@ Risk level: ${getRiskLevel(d)}`,
 function initializeMap() {
   if (!mapEl.value || map) return
 
-  syncCompactViewport()
-
   map = L.map(mapEl.value, {
     center: [-29.5, 134.5],
     zoom: 4,
     minZoom: 3,
     maxZoom: 7,
     scrollWheelZoom: false,
-    zoomControl: !isCompactViewport.value,
   })
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -302,29 +280,13 @@ function initializeMap() {
 
   nextTick(() => {
     map.invalidateSize()
-    applyMapViewportPadding()
     resetOverlay()
   })
 }
 
 onMounted(() => {
-  syncCompactViewport()
-  if (typeof window !== 'undefined') {
-    window.addEventListener('resize', handleMapResize, { passive: true })
-  }
   initializeMap()
 })
-
-function handleMapResize() {
-  const wasCompact = isCompactViewport.value
-  syncCompactViewport()
-  if (!map) return
-  map.invalidateSize()
-  if (wasCompact !== isCompactViewport.value) {
-    applyMapViewportPadding()
-  }
-  renderD3Layer()
-}
 
 watch(
   () => [props.mapData, props.selectedYear],
@@ -340,9 +302,6 @@ watch(
 )
 
 onBeforeUnmount(() => {
-  if (typeof window !== 'undefined') {
-    window.removeEventListener('resize', handleMapResize)
-  }
   if (map) {
     map.remove()
     map = null
@@ -365,31 +324,12 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <p v-if="topRankedState" class="map-top-chip">
-        Top state: {{ topRankedState.location }} · {{ formatRankingValue(topRankedState) }} ·
-        {{ formatRankingSecondaryValue(topRankedState) }}
-      </p>
-
       <div class="leaflet-d3-map-shell">
         <div ref="mapEl" class="leaflet-d3-map"></div>
-        <div class="leaflet-d3-legend leaflet-d3-legend--overlay" aria-label="Risk legend">
-          <strong>Risk</strong>
-          <div class="legend-chips">
-            <span class="legend-chip legend-chip--high">High</span>
-            <span class="legend-chip legend-chip--medium">Medium</span>
-            <span class="legend-chip legend-chip--low">Low</span>
-          </div>
-          <small>Circle size = reports</small>
-        </div>
       </div>
 
-      <p v-if="topRankedState" class="map-top-summary">
-        Top state: {{ topRankedState.location }} · {{ formatRankingValue(topRankedState) }} ·
-        {{ formatRankingSecondaryValue(topRankedState) }}
-      </p>
-
-      <div class="leaflet-d3-map-footer leaflet-d3-map-footer--legacy" hidden>
-        <div class="leaflet-d3-legend leaflet-d3-legend--full">
+      <div class="leaflet-d3-map-footer">
+        <div class="leaflet-d3-legend">
           <strong>Risk level</strong>
 
           <div class="legend-row">
@@ -410,20 +350,12 @@ onBeforeUnmount(() => {
           <small>Circle size shows report count.</small>
         </div>
 
-        <div class="leaflet-d3-legend leaflet-d3-legend--compact">
-          <strong>Risk level</strong>
-          <div class="legend-chips">
-            <span class="legend-chip legend-chip--high">High</span>
-            <span class="legend-chip legend-chip--medium">Medium</span>
-            <span class="legend-chip legend-chip--low">Low</span>
-          </div>
-          <small>Circle size shows report count.</small>
+        <div v-if="topRankedState" class="map-highlight-card">
+          <span class="map-highlight-card__eyebrow">Top ranked state</span>
+          <strong>{{ topRankedState.location }}</strong>
+          <small>{{ formatRankingValue(topRankedState) }}</small>
+          <small>{{ formatRankingSecondaryValue(topRankedState) }}</small>
         </div>
-
-        <p v-if="topRankedState" class="map-top-summary">
-          Top state: {{ topRankedState.location }} · {{ formatRankingValue(topRankedState) }} ·
-          {{ formatRankingSecondaryValue(topRankedState) }}
-        </p>
       </div>
     </section>
 
@@ -458,7 +390,11 @@ onBeforeUnmount(() => {
       </div>
 
       <ol v-if="rankedStates.length" class="state-ranking-list">
-        <li v-for="state in rankedStates" :key="state.location" class="state-ranking-item">
+        <li
+          v-for="state in rankedStates"
+          :key="state.location"
+          class="state-ranking-item"
+        >
           <span class="state-ranking-item__rank">#{{ state.rank }}</span>
 
           <div class="state-ranking-item__meta">
@@ -469,30 +405,33 @@ onBeforeUnmount(() => {
             </small>
           </div>
 
-          <span class="risk-pill" :class="`risk-pill--${state.riskLevel.toLowerCase()}`">
+          <span
+            class="risk-pill"
+            :class="`risk-pill--${state.riskLevel.toLowerCase()}`"
+          >
             {{ state.riskLevel }}
           </span>
         </li>
       </ol>
 
-      <div v-else class="state-ranking-empty">No ranked state data available for this year.</div>
+      <div v-else class="state-ranking-empty">
+        No ranked state data available for this year.
+      </div>
     </aside>
   </div>
 </template>
 
 <style scoped>
 .leaflet-d3-map-layout {
-  align-items: stretch;
+  align-items: start;
   display: grid;
-  gap: 14px;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  padding-bottom: 0;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1.35fr) 320px;
 }
 
 .leaflet-d3-map-panel {
   display: grid;
-  gap: 8px;
-  min-width: 0;
+  gap: 16px;
 }
 
 .leaflet-d3-map-panel__header {
@@ -524,114 +463,36 @@ onBeforeUnmount(() => {
   gap: 8px;
 }
 
-.leaflet-d3-map-panel__header {
-  display: none;
-}
-
-.map-top-chip {
-  background: #fffbf7;
-  border: 1px solid #e3d7c8;
-  border-radius: 8px;
-  color: #2b2b2b;
-  font-size: 0.78rem;
-  line-height: 1.4;
-  margin: 0;
-  padding: 6px 10px;
-}
-
 .leaflet-d3-map-shell {
-  animation: mapSceneIn 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  background: #ffffff;
-  border: 1px solid #e3d7c8;
-  border-radius: 12px;
-  box-shadow: none;
-  height: 450px;
+  background: var(--ms-color-surface-panel);
+  border: 1px solid var(--ms-color-border-default);
+  border-radius: 24px;
+  box-shadow: 0 12px 30px rgba(44, 62, 140, 0.08);
   overflow: hidden;
   position: relative;
 }
 
 .leaflet-d3-map {
-  height: 100%;
-  min-height: 450px;
+  height: 520px;
   width: 100%;
 }
 
-.leaflet-d3-legend--overlay {
-  background: rgba(255, 251, 247, 0.94);
-  border: 1px solid #e3d7c8;
-  border-radius: 8px;
-  bottom: 10px;
-  box-shadow: none;
+.leaflet-d3-map-footer {
+  align-items: start;
   display: grid;
-  gap: 4px;
-  left: 10px;
-  max-width: min(220px, 46%);
-  padding: 8px 10px;
-  position: absolute;
-  z-index: 500;
-}
-
-.leaflet-d3-legend--overlay strong {
-  font-size: 0.72rem;
-}
-
-.leaflet-d3-legend--overlay small {
-  font-size: 0.66rem;
-}
-
-.map-top-summary {
-  display: none;
+  gap: 16px;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
 }
 
 .leaflet-d3-legend {
-  background: #ffffff;
-  border: 1px solid #e5e2dc;
+  background: var(--ms-color-surface-panel);
+  border: 1px solid var(--ms-color-border-default);
   border-radius: 16px;
   box-shadow: 0 12px 30px rgba(44, 62, 140, 0.12);
   color: var(--ms-color-text-primary);
   display: grid;
   gap: 8px;
   padding: 12px 14px;
-}
-
-.leaflet-d3-legend--compact,
-.map-top-summary {
-  display: none;
-}
-
-.legend-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.legend-chip {
-  border-radius: 999px;
-  font-size: 0.68rem;
-  font-weight: 700;
-  padding: 4px 8px;
-}
-
-.legend-chip--high {
-  background: #fef2f2;
-  color: #9f1d1a;
-}
-
-.legend-chip--medium {
-  background: #fff7e8;
-  color: #9a5b00;
-}
-
-.legend-chip--low {
-  background: #eef7eb;
-  color: #39622f;
-}
-
-.map-top-summary {
-  color: #2b2b2b;
-  font-size: 0.8rem;
-  line-height: 1.4;
-  margin: 0;
 }
 
 .leaflet-d3-legend strong {
@@ -686,8 +547,8 @@ onBeforeUnmount(() => {
 }
 
 .map-highlight-card {
-  background: #ffffff;
-  border: 1px solid #e5e2dc;
+  background: linear-gradient(135deg, rgba(31, 45, 107, 0.06) 0%, rgba(255, 255, 255, 0.95) 100%);
+  border: 1px solid var(--ms-color-border-default);
   border-radius: 18px;
   display: grid;
   gap: 4px;
@@ -715,17 +576,20 @@ onBeforeUnmount(() => {
 }
 
 .state-ranking-card {
-  align-self: stretch;
-  background: #ffffff;
-  border: 1px solid #e3d7c8;
-  border-radius: 12px;
-  box-shadow: none;
+  align-self: start;
+  background: linear-gradient(180deg, #ffffff 0%, #f9f7f4 100%);
+  border: 1px solid var(--ms-color-border-default);
+  border-radius: 20px;
+  box-shadow: 0 12px 30px rgba(44, 62, 140, 0.08);
   display: grid;
-  gap: 10px;
-  height: 450px;
-  max-height: 450px;
+  gap: 16px;
+  grid-template-rows: auto minmax(0, 1fr);
+  max-height: 735px;
+  min-height: 0;
   overflow: hidden;
-  padding: 12px;
+  padding: 18px;
+  position: sticky;
+  top: 24px;
 }
 
 .state-ranking-card__header {
@@ -747,32 +611,23 @@ onBeforeUnmount(() => {
 }
 
 .state-ranking-toggle {
-  align-items: stretch;
   background: var(--ms-color-surface-subtle);
   border: 1px solid var(--ms-color-border-soft);
-  border-radius: 12px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  overflow: hidden;
-  width: 100%;
+  border-radius: 999px;
+  display: inline-flex;
+  padding: 4px;
 }
 
 .state-ranking-toggle__button {
   background: transparent;
   border: 0;
-  border-right: 1px solid var(--ms-color-border-soft);
+  border-radius: 999px;
   color: var(--ms-color-text-secondary);
   cursor: pointer;
   font-family: var(--ms-font-stack);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  min-height: 34px;
-  padding: 6px 10px;
-  text-align: center;
-}
-
-.state-ranking-toggle__button:last-child {
-  border-right: 0;
+  padding: 8px 12px;
 }
 
 .state-ranking-toggle__button--active {
@@ -782,74 +637,25 @@ onBeforeUnmount(() => {
 
 .state-ranking-list {
   display: grid;
-  gap: 0;
+  gap: 10px;
   list-style: none;
   margin: 0;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: 0;
+  padding-right: 6px;
 }
 
 .state-ranking-item {
-  animation: rankRowIn 380ms ease both;
   align-items: center;
-  background: transparent;
-  border: 0;
-  border-bottom: 1px solid #e3d7c8;
-  border-radius: 0;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--ms-color-border-soft);
+  border-radius: 16px;
   display: grid;
-  gap: 8px;
-  grid-template-columns: 32px minmax(0, 1fr) auto;
-  min-height: 56px;
-  padding: 8px 4px;
-}
-
-.state-ranking-item:nth-child(1) {
-  animation-delay: 0ms;
-}
-
-.state-ranking-item:nth-child(2) {
-  animation-delay: 70ms;
-}
-
-.state-ranking-item:nth-child(3) {
-  animation-delay: 120ms;
-}
-
-.state-ranking-item:nth-child(4) {
-  animation-delay: 170ms;
-}
-
-.state-ranking-item:nth-child(n + 5) {
-  animation-delay: 220ms;
-}
-
-@keyframes mapSceneIn {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes rankRowIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.state-ranking-item:last-child {
-  border-bottom: 0;
+  gap: 12px;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  padding: 12px 14px;
 }
 
 .state-ranking-item__rank {
@@ -941,85 +747,25 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 767px) {
-  .map-top-chip {
-    display: none;
-  }
-
-  .map-top-summary {
-    display: block;
-    background: #fffbf7;
-    border: 1px solid #e3d7c8;
-    border-radius: 10px;
-    padding: 8px 10px;
-  }
-
-  .leaflet-d3-map-shell {
-    border: 1px solid #e3d7c8;
-    border-radius: 12px;
-    box-shadow: none;
-    overflow: hidden;
-  }
-
+@media (max-width: 640px) {
   .leaflet-d3-map {
-    height: 320px;
+    height: 420px;
+  }
+
+  .leaflet-d3-map-panel__meta {
     width: 100%;
   }
 
-  .leaflet-d3-map-footer {
-    gap: 10px;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .leaflet-d3-map-layout :deep(.leaflet-control-zoom) {
-    display: none;
-  }
-
-  .leaflet-d3-map-layout :deep(.leaflet-control-attribution) {
-    font-size: 0.58rem;
-    line-height: 1.3;
-    max-width: 72%;
-    white-space: normal;
-  }
-
-  .state-ranking-card {
-    padding: 12px;
-    max-height: none;
-  }
-
-  .state-ranking-toggle__button {
-    font-size: 0.75rem;
-    min-height: 34px;
-    padding: 6px 8px;
+  .map-meta-chip {
+    justify-content: center;
   }
 
   .state-ranking-item {
-    border-radius: 10px;
-    gap: 8px;
-    grid-template-columns: 32px minmax(0, 1fr) auto;
-    min-height: 76px;
-    max-height: 92px;
-    padding: 8px 10px;
-  }
-
-  .state-ranking-item__meta strong {
-    font-size: 0.86rem;
-  }
-
-  .state-ranking-item__meta small {
-    font-size: 0.72rem;
+    grid-template-columns: 40px minmax(0, 1fr);
   }
 
   .risk-pill {
-    font-size: 0.66rem;
-    padding: 4px 7px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .leaflet-d3-map-shell,
-  .state-ranking-item {
-    animation: none !important;
+    justify-self: start;
   }
 }
 </style>

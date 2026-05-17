@@ -4,14 +4,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import os
-from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 import xml.etree.ElementTree as ET
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 import pymupdf
 from backend.db.postgres import get_conn
 from backend.ml.inference import predict_message
@@ -19,7 +18,6 @@ from backend.ml.rules import build_analysis_response
 from backend.services.link_analysis import analyze_link_input
 from backend.services.pdf_analysis import parse_pdf_bytes
 from backend.services.analyze_core import analyze_payload
-from backend.services.gemini_proxy import generate_coach_summary_proxy, get_gemini_proxy_status
 
 app = FastAPI(title="StepSafe PyMuPDF API", version="1.0.0")
 
@@ -48,12 +46,6 @@ class AnalyzeRequest(BaseModel):
     contains_email: int | None = None
     has_payment_request: int | None = None
     asks_personal_info: int | None = None
-
-
-class GeminiCoachRequest(BaseModel):
-    prompt: str
-    repairPrompt: str = ""
-    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 @app.get("/api/pymupdf/health")
@@ -301,23 +293,6 @@ async def analyze_pdf(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Analyze PDF failed: {exc}") from exc
-
-
-@app.post("/api/gemini/coach-summary")
-def gemini_coach_summary(req: GeminiCoachRequest) -> dict[str, object]:
-    try:
-        payload = req.model_dump()
-        result = generate_coach_summary_proxy(payload)
-        return result
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Gemini coach summary failed: {exc}") from exc
-
-
-@app.get("/api/gemini/status")
-def gemini_status() -> dict[str, object]:
-    """Deployment-safe Gemini readiness check (never exposes secret values)."""
-
-    return get_gemini_proxy_status()
 
 
 @app.get("/api/debug-db")

@@ -1,86 +1,41 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap');
 
 :root {
-  /* ── 9-colour system palette ──────────────────────────── */
-  --ms-navy:        #1B2E5E;   /* structure, headings, primary btn  */
-  --ms-red:         #D0312D;   /* warning / alert ONLY, ≤3% area    */
-  --ms-ivory:       #FCF7F1;   /* main page background (45-55%)      */
-  --ms-sand:        #F4EDE0;   /* section alternate background        */
-  --ms-steel:       #3B6F8F;   /* info, links, secondary actions      */
-  --ms-sage:        #7A9A82;   /* positive, community, support        */
-  --ms-mustard:     #D8A24A;   /* highlight, flow numbers, decoration */
-  --ms-charcoal:    #2B2B2B;   /* body text                           */
-  --ms-taupe:       #E3D7C8;   /* borders, dividers — no heavy frames */
-  /* ─────────────────────────────────────────────────────── */
+  --ms-color-text-primary: #1a1a2a;
+  --ms-color-text-secondary: #6b7280;
+  --ms-color-text-tertiary: #6b7280;
 
-  --ms-color-text-primary: #2B2B2B;
-  --ms-color-text-secondary: #5a5a5a;
-  --ms-color-text-tertiary: #7a7a7a;
+  --ms-color-surface-page-start: #f9f7f4;
+  --ms-color-surface-page-mid: #f2efe8;
+  --ms-color-surface-page-end: #eaf7f3;
+  --ms-color-surface-panel: #ffffff;
+  --ms-color-surface-subtle: #f9f7f4;
+  --ms-color-surface-hero: #f9f7f4;
+  --ms-color-surface-block: #eef2ff;
+  --ms-color-surface-block-strong: #1c2b1e;
 
-  --ms-color-surface-page-start: #FCF7F1;
-  --ms-color-surface-page-mid: #F4EDE0;
-  --ms-color-surface-page-end: #F4EDE0;
-  --ms-color-surface-panel: #FCF7F1;
-  --ms-color-surface-subtle: #FCF7F1;
-  --ms-color-surface-hero: #FCF7F1;
-  --ms-color-surface-block: rgba(59, 111, 143, 0.07);
-  --ms-color-surface-block-strong: #1B2E5E;
+  --ms-color-border-default: #e5e2dc;
+  --ms-color-border-soft: #e5e2dc;
 
-  --ms-color-border-default: #E3D7C8;
-  --ms-color-border-soft: #E3D7C8;
+  --ms-color-brand: #1f2d6b;
+  --ms-color-brand-hover: #1f2d6b;
+  --ms-color-brand-active: #1f2d6b;
+  --ms-color-link-visited: #1f2d6b;
 
-  --ms-color-brand: #1B2E5E;
-  --ms-color-brand-hover: #13244a;
-  --ms-color-brand-active: #1B2E5E;
-  --ms-color-link-visited: #3B6F8F;
+  --ms-color-danger: #d0312d;
+  --ms-color-danger-soft: #fef2f2;
+  --ms-color-success: #1f2d6b;
+  --ms-color-success-soft: #eef2ff;
+  --ms-color-warning: #1f2d6b;
+  --ms-color-warning-soft: #eef2ff;
 
-  --ms-color-danger: #D0312D;
-  --ms-color-danger-soft: rgba(208, 49, 45, 0.07);
-  --ms-color-success: #7A9A82;
-  --ms-color-success-soft: rgba(122, 154, 130, 0.1);
-  --ms-color-warning: #D8A24A;
-  --ms-color-warning-soft: rgba(216, 162, 74, 0.1);
-  --ms-color-info: #3B6F8F;
-  --ms-color-info-soft: rgba(59, 111, 143, 0.08);
+  --ms-color-chip-bg: #f9f7f4;
+  --ms-color-chip-border: #e5e2dc;
 
-  --ms-color-chip-bg: #F4EDE0;
-  --ms-color-chip-border: #E3D7C8;
-
-  --ms-gradient-accent: linear-gradient(120deg, #1B2E5E 0%, #3B6F8F 100%);
+  --ms-gradient-accent: linear-gradient(120deg, #1f2d6b 0%, #1f2d6b 100%);
 
   --ms-font-stack: 'Plus Jakarta Sans', 'Segoe UI', Helvetica, Arial, sans-serif;
   --ms-font-heading: 'Sora', 'Plus Jakarta Sans', 'Segoe UI', Helvetica, Arial, sans-serif;
-
-  --ms-control-radius: 10px;
-  --ms-control-height-md: 40px;
-  --ms-control-height-lg: 44px;
-
-  --ms-control-bg: #FCF7F1;
-  --ms-control-bg-active: #1B2E5E;
-  --ms-control-bg-danger-soft: rgba(208, 49, 45, 0.07);
-
-  --ms-control-text: #1B2E5E;
-  --ms-control-text-active: #FCF7F1;
-
-  --ms-control-border: #E3D7C8;
-  --ms-control-border-strong: #1B2E5E;
-  --ms-control-border-accent: #3B6F8F;
-
-  --ms-type-title-xl: clamp(2rem, 3.6vw, 2.7rem);
-  --ms-type-title-lg: clamp(1.45rem, 2.8vw, 1.95rem);
-  --ms-type-title-md: clamp(1.2rem, 2vw, 1.5rem);
-  --ms-type-body-lg: 1rem;
-  --ms-type-body-md: 0.92rem;
-  --ms-type-body-sm: 0.82rem;
-
-  --ms-line-title-tight: 1.28;
-  --ms-line-title-regular: 1.35;
-  --ms-line-body-loose: 1.7;
-  --ms-line-body-regular: 1.6;
-  --ms-line-body-compact: 1.48;
-
-  --ms-space-title-gap: 10px;
-  --ms-space-section-gap: 14px;
 }
 
 html {
@@ -88,7 +43,7 @@ html {
 }
 
 body {
-  background: var(--ms-ivory);
+  background: #f9f7f4;
   color: var(--ms-color-text-primary);
   font-family: var(--ms-font-stack);
 }
@@ -116,7 +71,7 @@ a {
 a:hover,
 a:focus-visible {
   border-bottom-color: currentcolor;
-  color: var(--ms-steel);
+  color: var(--ms-color-brand);
 }
 
 a:visited {
@@ -205,8 +160,8 @@ button:focus-visible {
   .menu-link,
   .menu-sublink
 ):focus-visible {
-  box-shadow: 0 10px 24px rgba(27, 46, 94, 0.22);
-  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(44, 62, 140, 0.16);
+  transform: translateY(-1px);
 }
 
 h1,
@@ -214,81 +169,6 @@ h2,
 h3 {
   font-family: var(--ms-font-heading);
   font-weight: 800;
-}
-
-.ms-control {
-  align-items: center;
-  background: var(--ms-control-bg);
-  border: 1px solid var(--ms-control-border);
-  border-radius: var(--ms-control-radius);
-  color: var(--ms-control-text);
-  cursor: pointer;
-  display: inline-flex;
-  font-family: var(--ms-font-stack);
-  font-weight: 600;
-  gap: 8px;
-  justify-content: center;
-  line-height: 1.3;
-  min-height: var(--ms-control-height-md);
-  padding: 10px 14px;
-  text-decoration: none;
-  transition:
-    background-color 0.22s ease,
-    border-color 0.22s ease,
-    color 0.22s ease,
-    box-shadow 0.22s ease,
-    transform 0.2s ease;
-}
-
-.ms-control:hover,
-.ms-control:focus-visible {
-  border-color: var(--ms-control-border-accent);
-}
-
-.ms-control--active {
-  background: var(--ms-control-bg-active);
-  border-color: var(--ms-control-border-strong);
-  color: var(--ms-control-text-active);
-}
-
-.ms-control--pill {
-  border-radius: 999px;
-}
-
-.ms-control--danger-soft {
-  background: var(--ms-control-bg-danger-soft);
-  border-color: var(--ms-control-border-accent);
-  color: var(--ms-control-border-accent);
-}
-
-.ms-control--sm {
-  font-size: 0.8rem;
-  min-height: 32px;
-  padding: 6px 10px;
-}
-
-.ms-control--lg {
-  font-size: 0.95rem;
-  min-height: var(--ms-control-height-lg);
-  padding: 10px 16px;
-}
-
-.ms-select {
-  appearance: none;
-  background: var(--ms-color-surface-panel);
-  border: 1px solid var(--ms-control-border);
-  border-radius: 12px;
-  color: var(--ms-color-text-primary);
-  font: inherit;
-  min-height: 44px;
-  outline: none;
-  padding: 10px 14px;
-  line-height: 1.35;
-}
-
-.ms-select:hover,
-.ms-select:focus-visible {
-  border-color: var(--ms-control-border-accent);
 }
 
 button:disabled,

@@ -96,7 +96,7 @@ function reveal(i) {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: #3B6F8F;
+  color: #0d9488;
   font-weight: 700;
 }
 
