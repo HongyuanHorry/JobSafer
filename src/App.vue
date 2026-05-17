@@ -1,7 +1,15 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { DotLottieVue } from '@lottiefiles/dotlottie-vue'
-import { ArrowRight } from 'lucide-vue-next'
+import {
+  ArrowRight,
+  BookHeart,
+  BookOpen,
+  HeartHandshake,
+  HeartPulse,
+  LifeBuoy,
+  ShieldCheck,
+} from 'lucide-vue-next'
 import ResultPanel from './components/ResultPanel.vue'
 import SubmissionPanel from './components/SubmissionPanel.vue'
 import InsightsPanel from './components/InsightsPanel.vue'
@@ -286,6 +294,266 @@ const footerLegalLinks = [
   { label: 'Terms', href: '#' },
 ]
 
+const supportGuides = [
+  {
+    id: 'recovery',
+    title: 'Recovery steps',
+    eyebrow: 'Calm next steps',
+    summary:
+      'For moments when you are unsure what just happened and want clear actions to reduce further harm.',
+    cta: 'Show recovery steps',
+    icon: LifeBuoy,
+    riskLabel: 'Money Risk',
+    explanation:
+      'The scammer may keep pushing for money or more details, so stopping contact now helps limit extra harm.',
+    action:
+      'You can stop replying, save screenshots, note what you shared, and contact IDCARE for a free recovery plan.',
+    links: [
+      {
+        label: 'IDCARE support',
+        href: 'https://www.idcare.org/',
+      },
+      {
+        label: 'Scamwatch recovery guide',
+        href: 'https://www.scamwatch.gov.au/stop-check-protect/what-to-do-if-youve-been-scammed',
+      },
+    ],
+  },
+  {
+    id: 'reporting',
+    title: 'Reporting help',
+    eyebrow: 'Tell the right place',
+    summary:
+      'For users who want to report an online employment or task scam and need the right reporting path fast.',
+    cta: 'Show reporting steps',
+    icon: BookOpen,
+    riskLabel: 'Report Needed',
+    explanation:
+      'Reporting gives authorities details they can track, and it may help warn other people before the same scam spreads.',
+    action:
+      'You can report the scam to Scamwatch, then use ReportCyber if money was lost or accounts were accessed.',
+    links: [
+      {
+        label: 'Report to Scamwatch',
+        href: 'https://portal.scamwatch.gov.au/report-a-scam/',
+      },
+      {
+        label: 'Open ReportCyber',
+        href: 'https://www.cyber.gov.au/report-and-recover/report',
+      },
+    ],
+  },
+  {
+    id: 'finance',
+    title: 'Bank protection',
+    eyebrow: 'Act on payment details',
+    summary:
+      'For users who shared bank, card, or payment details and need urgent actions to protect money and accounts.',
+    cta: 'Show bank protection',
+    icon: ShieldCheck,
+    riskLabel: 'Bank Risk',
+    explanation:
+      'Shared payment details can be used quickly, so fast action with your bank can reduce losses and block misuse.',
+    action:
+      'You can call your bank now, freeze cards, change banking passwords in the official app, and review recent transactions.',
+    links: [
+      {
+        label: 'Bank account guide',
+        href: 'https://www.cyber.gov.au/report-and-recover/recover-from/account-compromise/bank',
+      },
+      {
+        label: 'Call 1300 CYBER1',
+        href: 'tel:1300292371',
+      },
+    ],
+  },
+  {
+    id: 'emotional',
+    title: 'Emotional relief',
+    eyebrow: 'Feelings matter too',
+    summary:
+      'For moments when panic, shame, anxiety, or self-blame are hitting hard and you need kind support right away.',
+    icon: HeartPulse,
+    choiceLabel: 'How are you feeling right now?',
+    variants: [
+      {
+        id: 'panic',
+        title: 'Panic',
+        riskLabel: 'Panic Feeling',
+        explanation:
+          'Your body may feel loud and urgent right now, but this reaction is common after a scam and does not mean danger is growing.',
+        action:
+          'You can breathe in for four, out for six, name five things you see, and write down only the facts you know.',
+      },
+      {
+        id: 'shame',
+        title: 'Shame',
+        riskLabel: 'Shame Spiral',
+        explanation:
+          'Feeling embarrassed after a scam is common, but being tricked does not mean you were careless or weak.',
+        action:
+          'You can say out loud that the scammer chose to lie, then text one trusted person and tell them what happened.',
+      },
+      {
+        id: 'anxiety',
+        title: 'Anxiety',
+        riskLabel: 'Stress Load',
+        explanation:
+          'Your mind may keep replaying the scam, and that can make everything feel bigger than it is in this moment.',
+        action:
+          'You can put your phone down for ten minutes, sip water, and list the next one or two actions instead of every worry.',
+      },
+      {
+        id: 'self_blame',
+        title: 'Self-blame',
+        riskLabel: 'Self-Blame',
+        explanation:
+          'Scammers practice pressure and deception every day, so being targeted does not make this your fault.',
+        action:
+          'You can replace “I should have known” with one true sentence about what the scammer did, then save evidence without judging yourself.',
+      },
+    ],
+    links: [
+      {
+        label: 'Call Lifeline 13 11 14',
+        href: 'tel:131114',
+      },
+      {
+        label: 'Open eheadspace support',
+        href: 'https://headspace.org.au/online-and-phone-support/connect-with-us/',
+      },
+    ],
+  },
+  {
+    id: 'stories',
+    title: 'Recovery stories',
+    eyebrow: 'You are not alone',
+    summary:
+      'Read short anonymous stories based on real scam reports so recovery can feel more possible and less isolating.',
+    icon: BookHeart,
+    choiceLabel: 'Choose a story to read',
+    variants: [
+      {
+        id: 'job_offer',
+        title: 'Fake job offer',
+        storyTitle: 'Anonymous story: “I thought it was a real recruiter.”',
+        storyBody:
+          'A 22-year-old shared a resume, felt excited, then noticed pressure to move off-platform fast. They stopped replying, saved screenshots, spoke to a friend, and reported it the same day.',
+        riskLabel: 'Not Alone',
+        explanation:
+          'A lot of smart young people trust fake recruiters at first, and many feel shaky before they start feeling clearer again.',
+        action:
+          'You can underline the step where this person paused, then choose one action you can copy in your own recovery today.',
+        storyTitle: 'Anonymous story: "I thought the cleaning job post was real."',
+        storyBody:
+          'Based on a real ABC News report, a young job seeker in Perth responded to a cleaning role in a Facebook group, then got asked to pay a processing fee and later more money for work clothes. They realised the offer was fake before paying further, and said nobody else should have to go through the same experience.',
+        explanation:
+          'A fake job can look normal at first, especially when you need work, so feeling shaken after spotting it is very common.',
+        action:
+          'You can list the first payment request you now see as a red flag, then tell one trusted person what happened.',
+      },
+      {
+        id: 'task_scam',
+        title: 'Task scam',
+        storyTitle: 'Anonymous story: “The first payout made it feel real.”',
+        storyBody:
+          'A 19-year-old finished simple tasks, received a small return, then got pushed to deposit more money. They told their bank quickly, blocked the contact, and asked family for help.',
+        riskLabel: 'Still Recovering',
+        explanation:
+          'Task scams are built to feel believable step by step, so many people only realise late that the trap was designed that way.',
+        action:
+          'You can write down the first red flag you notice now, then share it with someone trusted so you do not hold it alone.',
+        storyTitle: 'Anonymous story: "The marketing job slowly turned into a trap."',
+        storyBody:
+          'Based on a real ABC News report, a young job seeker uploaded a resume online, got contacted about a flexible marketing role, and was guided into simple tasks that felt game-like. When the scammer started asking for crypto deposits to unlock stages and withdrawals, the person eventually stopped, contacted their bank and police, and tried to warn others.',
+        explanation:
+          'Task scams are designed to feel believable one step at a time, so many people only recognise the trap after they are already pulled in.',
+        action:
+          'You can write down the moment the job first asked for your own money, then save that note as proof this was manipulation.',
+      },
+      {
+        id: 'payment_request',
+        title: 'Payment request',
+        storyTitle: 'Anonymous story: “They said the fee was refundable.”',
+        storyBody:
+          'A young graduate paid an onboarding fee because the message sounded urgent and professional. After the shock settled, they saved receipts, reported the scam, and used support services to steady themselves.',
+        riskLabel: 'Recovery Works',
+        explanation:
+          'Many scam victims feel frozen at first, but practical steps and support can still help them regain control.',
+        action:
+          'You can pick one fact from this story that matches yours, then choose one support step that proves recovery is still possible.',
+        storyTitle: 'Anonymous story: "They told me I had to pay to keep the job going."',
+        storyBody:
+          'Based on a real ABC News report, a job seeker answered a Facebook ad, moved to WhatsApp, and was shown a fake e-commerce platform that looked like a real retailer. Over a few days, they were pushed to deposit larger amounts of their own money for fake orders, lost a large chunk of savings, then contacted the bank and later sought counselling support.',
+        explanation:
+          'When a scam keeps asking for more money, people often freeze or hope one last payment will fix it, but recovery can still start after that.',
+        action:
+          'You can list the payments or transfers in order, then call your bank or a support service with that timeline beside you.',
+      },
+    ],
+    links: [
+      {
+        label: 'Join headspace communities',
+        href: 'https://headspace.org.au/online-and-phone-support/join-the-community/',
+      },
+      {
+        label: 'Open IDCARE support',
+        href: 'https://www.idcare.org/',
+      },
+    ],
+  },
+]
+
+const activeSupportGuide = ref(supportGuides[0]?.id || null)
+const activeSupportGuideData = computed(
+  () => supportGuides.find((guide) => guide.id === activeSupportGuide.value) || supportGuides[0] || null,
+)
+const supportGuideSelections = reactive({
+  emotional: 'panic',
+  stories: 'job_offer',
+})
+const activeSupportGuideChoice = computed(() => {
+  const guide = activeSupportGuideData.value
+  if (!guide) return null
+  if (!Array.isArray(guide.variants) || !guide.variants.length) return guide
+
+  const selectedId = supportGuideSelections[guide.id] || guide.variants[0].id
+  return guide.variants.find((variant) => variant.id === selectedId) || guide.variants[0]
+})
+const activeEmotionalVariant = computed(() => {
+  const emotionalGuide = supportGuides.find((guide) => guide.id === 'emotional')
+  if (!emotionalGuide?.variants?.length) return null
+
+  const selectedId = supportGuideSelections.emotional || emotionalGuide.variants[0].id
+  return emotionalGuide.variants.find((variant) => variant.id === selectedId) || emotionalGuide.variants[0]
+})
+const emotionalSupportInput = ref('')
+const emotionalSupportMessages = ref([])
+const emotionalSupportPrompts = computed(() => {
+  const variantId = supportGuideSelections.emotional
+
+  if (variantId === 'panic') {
+    return [
+      'I feel like I cannot calm down',
+      'My chest feels tight',
+      'I feel panicked and do not know what to do first',
+    ]
+  }
+
+  if (variantId === 'shame') {
+    return ['I feel embarrassed', 'I do not want to tell anyone', 'How do I stop blaming myself?']
+  }
+
+  if (variantId === 'self_blame') {
+    return ['I keep thinking this is my fault', 'I should have known better', 'How do I let go of blame?']
+  }
+
+  return [
+    'My thoughts keep looping',
+    'I cannot stop worrying',
+    'I feel overwhelmed and need help slowing down',
+  ]
+})
 const learnScamType = ref('task_based')
 const learnStep = ref('entry')
 const pendingQuickCheck = ref(null)
@@ -317,6 +585,8 @@ function resetSimulatorPersonalSummary() {
     source: 'idle',
   }
 }
+
+let emotionalSupportMessageId = 0
 
 const learnMeta = computed(
   () => scamTypeMeta[learnScamType.value] || { label: 'Unknown', tone: '' },
@@ -810,6 +1080,216 @@ function navigateToHowStep(stepNumber) {
 function externalAriaLabel(label) {
   return `${label} (opens in a new tab)`
 }
+
+function supportLinkAriaLabel(link) {
+  return link.href.startsWith('tel:') ? `${link.label} (phone link)` : externalAriaLabel(link.label)
+}
+
+function setActiveSupportGuide(guideId) {
+  activeSupportGuide.value = guideId
+}
+
+function setSupportGuideVariant(guideId, variantId) {
+  supportGuideSelections[guideId] = variantId
+}
+
+function stageEmotionalSupportPrompt(prompt) {
+  emotionalSupportInput.value = String(prompt || '')
+}
+
+function nextEmotionalSupportMessage(role, text) {
+  emotionalSupportMessageId += 1
+  return {
+    id: `emotional-support-${emotionalSupportMessageId}`,
+    role,
+    text,
+  }
+}
+
+function getActiveEmotionContext() {
+  const variant = activeEmotionalVariant.value
+  return {
+    id: variant?.id || 'anxiety',
+    title: variant?.title || 'Anxiety',
+  }
+}
+
+function getPromptSpecificReply(message, emotion) {
+  const content = String(message || '').trim()
+
+  const promptReplies = {
+    panic: {
+      'I feel like I cannot calm down': `Because you selected ${emotion.title}, I want to focus on slowing the intensity rather than solving the whole situation.\n\nWhat I notice: your body still feels switched on.\nWhat may help first: do one full inhale, then make the exhale longer than the inhale three times.\nNext step: say out loud, "I do not need every answer right now. I only need the next safe step."\n\nAfter that, sit back in your chair or place both feet on the floor and notice one thing that feels solid.`,
+      'My chest feels tight': `Because you selected ${emotion.title}, I am going to treat this like a body-first moment.\n\nA tight chest can happen when stress is high, even if you are physically safe right now.\nTry dropping your shoulders, unclenching your jaw, and breathing out slowly as if you are cooling a drink.\n\nThen name one object you can see, one sound you can hear, and one surface you can touch. That helps your brain come back to the room.`,
+      'I feel panicked and do not know what to do first': `Because you selected ${emotion.title}, let us make the first step extremely small.\n\nStep 1: stop reading old scam messages for one minute.\nStep 2: take one slow breath out.\nStep 3: choose only one lane next, either emotional support, reporting, or bank protection.\n\nWhen panic is high, clarity usually returns after the first small action, not before it.`,
+    },
+    shame: {
+      'I feel embarrassed': `Because you selected ${emotion.title}, I want to answer the embarrassment gently and directly.\n\nWhat happened may feel exposing, but it does not make you naive or weak.\nScammers design these situations to make smart people act under pressure.\n\nTry this sentence: "I was deceived, and that is different from being foolish." Then do one caring thing for yourself before you decide who to tell.`,
+      'I do not want to tell anyone': `Because you selected ${emotion.title}, it makes sense that telling someone feels hard.\n\nA lot of people stay silent at first because they fear judgment more than the scam itself.\nYou do not need to tell the whole story in one go.\n\nTry sending one short message like: "Something upsetting happened online and I need support, not blame." That is enough to open the door.`,
+      'How do I stop blaming myself?': `Because you selected ${emotion.title}, I want to help loosen the blame before it hardens into shame.\n\nSelf-blame often shows up when your brain wants control after something confusing.\nA useful reset is to separate what the scammer chose from what you know now.\n\nWrite: "They used pressure." "They lied." "I am learning what happened." Those statements are usually truer than the harsh version in your head.`,
+    },
+    self_blame: {
+      'I keep thinking this is my fault': `Because you selected ${emotion.title}, I am going to answer that thought very clearly.\n\nThe fact that you were targeted does not make the scam your fault.\nResponsibility belongs to the person who chose to deceive, rush, and exploit trust.\n\nIf it helps, say: "I may regret what happened, but regret is not the same as blame." Then write down one thing you would say to a friend in the same situation.`,
+      'I should have known better': `Because you selected ${emotion.title}, that sentence is probably hindsight speaking, not fairness.\n\nAfter the fact, red flags look obvious. In the moment, scammers rely on hope, urgency, and repetition to blur judgment.\nThat does not excuse the harm, but it does explain why this can happen to capable people.\n\nTry replacing that sentence with: "I know more now than I knew then." That usually gives your mind something truer to stand on.`,
+      'How do I let go of blame?': `Because you selected ${emotion.title}, letting go of blame usually starts with replacing punishment with structure.\n\nYou do not have to forgive the scam or feel calm immediately.\nYou only need to stop turning the scammer's actions into a story about your worth.\n\nA good next step is to write three facts, one feeling, and one action. That can move your mind from blame into recovery.`,
+    },
+    anxiety: {
+      'My thoughts keep looping': `Because you selected ${emotion.title}, I want to slow the loop instead of arguing with every thought.\n\nWhen your brain repeats the scam, it is often trying to create certainty.\nToo much replay usually makes the fear louder, not clearer.\n\nTry setting a ten-minute boundary: write the facts once, then stop adding new imagined outcomes until the timer ends.`,
+      'I cannot stop worrying': `Because you selected ${emotion.title}, I want to help narrow the worry instead of letting it spread everywhere.\n\nWorry after a scam often jumps ahead into every possible consequence.\nThat is understandable, but it can leave you too flooded to act.\n\nPick one question only: "What needs attention in the next hour?" Let the rest wait until after that one step.`,
+      'I feel overwhelmed and need help slowing down': `Because you selected ${emotion.title}, slowing down is the right goal.\n\nOverwhelm usually means your mind is holding too many tasks and fears at once.\nYou do not need to organise everything before you can feel steadier.\n\nTry this order: breathe out, sip water, write three facts, then choose only one action. Small order can reduce big emotional noise.`,
+    },
+  }
+
+  return promptReplies[emotion.id]?.[content] || null
+}
+
+function looksLikeEmotionalSupportMessage(message) {
+  const lower = String(message || '').trim().toLowerCase()
+  if (!lower) return false
+
+  const emotionalKeywords = [
+    'feel',
+    'feeling',
+    'panic',
+    'panicked',
+    'panic attack',
+    'shame',
+    'ashamed',
+    'embarrassed',
+    'anxious',
+    'anxiety',
+    'worried',
+    'worry',
+    'overwhelmed',
+    'scared',
+    'afraid',
+    'guilty',
+    'blame',
+    'my fault',
+    'should have known',
+    'stupid',
+    'idiot',
+    'chest feels tight',
+    'cannot calm down',
+    'cant calm down',
+    'mind will not slow down',
+    'mind won\'t slow down',
+    'spiral',
+    'looping',
+    'upset',
+    'shaken',
+    'unsafe emotionally',
+    'need comfort',
+    'need support',
+  ]
+
+  return emotionalKeywords.some((keyword) => lower.includes(keyword))
+}
+
+function getEmotionalSupportStarter(variantId) {
+  const emotionTitle =
+    activeEmotionalVariant.value?.id === variantId
+      ? activeEmotionalVariant.value.title
+      : supportGuides
+          .find((guide) => guide.id === 'emotional')
+          ?.variants?.find((variant) => variant.id === variantId)?.title || 'Anxiety'
+
+  if (variantId === 'panic') {
+    return `You selected ${emotionTitle}, so I will stay focused on helping your body slow down first.\n\nWhat you are feeling can be intense, but it is a common stress reaction after a scam.\n\nFor the next minute only, try one long exhale, plant both feet on the floor, and let us keep everything to one small step at a time.`
+  }
+
+  if (variantId === 'shame') {
+    return `You selected ${emotionTitle}, so I will keep this gentle and non-judging.\n\nWhat happened does not say anything bad about your intelligence or worth. Scammers rely on pressure, urgency, and false trust.\n\nFor now, try speaking to yourself the way you would speak to a friend who had just been tricked.`
+  }
+
+  if (variantId === 'self_blame') {
+    return `You selected ${emotionTitle}, so I am going to keep separating your actions from the scammer's choices.\n\nSelf-blame is common after a scam, but the responsibility sits with the scammer who chose to lie.\n\nRight now, we can focus on facts, not punishment.`
+  }
+
+  return `You selected ${emotionTitle}, so I will help you slow the mental spiral before we think about everything else.\n\nIt makes sense that your mind feels busy right now after something confusing or upsetting happened.\n\nFor this moment, we only need one grounded next step, not a full solution.`
+}
+
+function resetEmotionalSupportChat(variantId = supportGuideSelections.emotional) {
+  emotionalSupportMessages.value = [nextEmotionalSupportMessage('assistant', getEmotionalSupportStarter(variantId))]
+  emotionalSupportInput.value = ''
+}
+
+function buildEmotionalSupportReply(message) {
+  const normalized = String(message || '').trim()
+  const lower = normalized.toLowerCase()
+  const emotion = getActiveEmotionContext()
+  const promptSpecificReply = getPromptSpecificReply(normalized, emotion)
+
+  if (promptSpecificReply) {
+    return promptSpecificReply
+  }
+
+  if (
+    lower.includes('hurt myself') ||
+    lower.includes('harm myself') ||
+    lower.includes('suicide') ||
+    lower.includes('kill myself') ||
+    lower.includes('end my life')
+  ) {
+    return `You selected ${emotion.title}, and what you just shared matters a lot.\n\nI am really glad you said it directly. This is the moment to involve a real person right now: call Lifeline on 13 11 14, or emergency services if you feel in immediate danger.\n\nIf you can, send one short message to someone you trust: "I need you with me right now."`
+  }
+
+  if (!looksLikeEmotionalSupportMessage(normalized)) {
+    return `This chat is set up for emotional support rather than general scam questions.\n\nI can help when you want to talk about feelings like panic, shame, anxiety, or self-blame.\n\nIf your question is more practical, please use the other support sections such as Recovery steps, Reporting help, or Bank protection.`
+  }
+
+  if (lower.includes('panic') || lower.includes('can\'t breathe') || lower.includes('heart') || lower.includes('chest')) {
+    return `Because you selected ${emotion.title}, I want to respond to your body first, not just the thoughts.\n\nWhat I notice: this sounds like your nervous system is in alarm mode.\nWhat it means: the feeling is strong, but it does not mean the danger is still growing.\nNext step: put both feet on the floor, breathe out longer than you breathe in three times, and name one object near you in detail.\n\nAfter that, do just one practical task, like saving screenshots or placing your bank card somewhere visible so you feel less scattered.`
+  }
+
+  if (
+    lower.includes('shame') ||
+    lower.includes('embarrassed') ||
+    lower.includes('stupid') ||
+    lower.includes('idiot')
+  ) {
+    return `Because you selected ${emotion.title}, I want to answer the shame directly.\n\nWhat I notice: you are talking to yourself like the scam proves something about you.\nWhat is true instead: being deceived does not make you foolish; it means someone used pressure and dishonesty on purpose.\nNext step: try one sentence that separates you from the scam, like "Someone lied to me on purpose."\n\nIf you can, tell one trusted person only the plain facts first. You do not have to explain your feelings perfectly to deserve support.`
+  }
+
+  if (
+    lower.includes('my fault') ||
+    lower.includes('should have known') ||
+    lower.includes('blame')
+  ) {
+    return `Because you selected ${emotion.title}, I am listening for blame language very carefully.\n\nWhat I hear: your mind is trying to turn hindsight into responsibility.\nWhat is more accurate: scammers use urgency, hope, repetition, and confusion to wear people down.\nNext step: make two short columns called "What the scammer did" and "What I know now."\n\nThat shift often helps your brain move from punishment to clarity.`
+  }
+
+  if (
+    lower.includes('scared') ||
+    lower.includes('anxious') ||
+    lower.includes('worry') ||
+    lower.includes('spiral') ||
+    lower.includes('overthinking')
+  ) {
+    return `Because you selected ${emotion.title}, I want to keep this small and structured.\n\nWhat I notice: your mind is trying to solve every consequence at once.\nWhat usually helps: smaller time windows, fewer decisions, and plain facts.\nNext step: focus only on the next ten minutes. Drink water, write the facts in a short list, and choose just one lane for now: support, reporting, or bank protection.\n\nYou do not need to solve the whole scam tonight to make real progress.`
+  }
+
+  return `Thank you for telling me that. Since you selected ${emotion.title}, I will keep my response grounded in that feeling.\n\nWhat I notice: something about this still feels heavy and unsettled for you.\nWhat is true: your reaction makes sense, and you do not have to earn care by explaining it perfectly.\nNext step: pause for one breath, write down the facts without judgment, and pick one supportive action only.\n\nIf you want, send me the hardest thought in your head right now, and I will help you work through that one thought first.`
+}
+
+function sendEmotionalSupportMessage(prefill = '') {
+  const content = String(prefill || emotionalSupportInput.value || '').trim()
+  if (!content) return
+
+  emotionalSupportMessages.value.push(nextEmotionalSupportMessage('user', content))
+  emotionalSupportMessages.value.push(
+    nextEmotionalSupportMessage('assistant', buildEmotionalSupportReply(content)),
+  )
+  emotionalSupportInput.value = ''
+}
+
+watch(
+  () => supportGuideSelections.emotional,
+  (variantId) => {
+    resetEmotionalSupportChat(variantId)
+  },
+  { immediate: true },
+)
 
 function getResourceKey(item) {
   return item.href
@@ -1998,45 +2478,216 @@ async function unlockSite() {
 
       <section
         id="support-section"
-        class="panel scene-panel scene-panel--support snap-stage section-a section-fade section-fade--support reveal-on-scroll"
+        class="panel support-section section-a section-fade section-fade--support reveal-on-scroll"
         aria-label="Support section"
       >
         <div class="container-shell">
-          <h2 class="section-title">Support</h2>
-          <p class="section-copy copy-block">
-            Report suspicious recruiters and keep evidence records to help follow-up investigation.
-          </p>
-        </div>
-      </section>
-
-      <!-- ── Pre-footer CTA band ── -->
-      <section
-        class="cta-band scene-panel scene-panel--raise scene-panel--final snap-stage"
-        aria-label="Call to action"
-      >
-        <div class="container-shell cta-band__inner">
-          <div class="cta-band__text">
-            <p class="cta-band__eyebrow">You're not alone</p>
-            <h2 class="cta-band__title">Stay one step ahead of scammers</h2>
-            <p class="cta-band__sub">
-              Check a message, explore the data, or run through a scenario — no sign-up needed.
-            </p>
+          <div class="support-head">
+            <div class="support-head__inset" aria-hidden="true">
+              <HeartHandshake :size="38" />
+            </div>
+            <div>
+              <p class="support-head__kicker">Recovery workflow</p>
+              <h2 class="support-head__title">Get the next safe step quickly</h2>
+              <p class="support-head__summary">
+                Choose the kind of help you need first. Then follow clear recovery, reporting, or
+                bank protection guidance without blame or jargon.
+              </p>
+            </div>
           </div>
-          <div class="cta-band__actions">
-            <button
-              type="button"
-              class="cta-band__btn cta-band__btn--primary"
-              @click="goToCheckScam"
-            >
-              Check a message
-            </button>
-            <button
-              type="button"
-              class="cta-band__btn cta-band__btn--ghost"
-              @click="navigateToSection('learn-section')"
-            >
-              Try a scenario
-            </button>
+
+          <div class="support-editor-grid">
+            <aside class="support-rail" aria-label="Support help types">
+              <p class="support-rail__hint">
+                Choose one support mode first, then use the guidance and official links on the
+                right.
+              </p>
+
+              <button
+                v-for="guide in supportGuides"
+                :key="guide.id"
+                type="button"
+                class="support-mode-button"
+                :class="{ 'support-mode-button--active': activeSupportGuide === guide.id }"
+                :aria-pressed="activeSupportGuide === guide.id"
+                @click="setActiveSupportGuide(guide.id)"
+              >
+                <span class="support-mode-button__icon" aria-hidden="true">
+                  <component :is="guide.icon" :size="22" />
+                </span>
+                <span class="support-mode-button__text">{{ guide.title }}</span>
+              </button>
+
+              <div class="support-rail-card">
+                <p class="support-rail-card__title">Before you report</p>
+                <p class="support-rail-card__copy">
+                  Keep screenshots, payment receipts, recruiter names, wallet or bank details, and
+                  dates ready.
+                </p>
+              </div>
+            </aside>
+
+            <div v-if="activeSupportGuideData" class="support-pane">
+              <div class="support-pane__head">
+                <p>{{ activeSupportGuideData.eyebrow }}</p>
+                <p class="support-pane__mode">{{ activeSupportGuideData.title }}</p>
+              </div>
+
+              <div class="support-pane__intro-card">
+                <div class="support-pane__intro-icon" aria-hidden="true">
+                  <component :is="activeSupportGuideData.icon" :size="34" />
+                </div>
+                <div>
+                  <h3>{{ activeSupportGuideData.title }}</h3>
+                  <p>{{ activeSupportGuideData.summary }}</p>
+                </div>
+              </div>
+
+              <section
+                v-if="activeSupportGuideData.variants?.length"
+                class="support-choice-panel"
+                :aria-label="activeSupportGuideData.choiceLabel || `${activeSupportGuideData.title} choices`"
+              >
+                <div class="support-choice-panel__head">
+                  <p>{{ activeSupportGuideData.choiceLabel }}</p>
+                </div>
+
+                <div class="support-choice-panel__options">
+                  <button
+                    v-for="variant in activeSupportGuideData.variants"
+                    :key="variant.id"
+                    type="button"
+                    class="support-choice-button"
+                    :class="{
+                      'support-choice-button--active':
+                        supportGuideSelections[activeSupportGuideData.id] === variant.id,
+                    }"
+                    :aria-pressed="supportGuideSelections[activeSupportGuideData.id] === variant.id"
+                    @click="setSupportGuideVariant(activeSupportGuideData.id, variant.id)"
+                  >
+                    {{ variant.title }}
+                  </button>
+                </div>
+              </section>
+
+              <section
+                v-if="activeSupportGuideChoice?.storyTitle"
+                class="support-story-card"
+                aria-label="Anonymous recovery story"
+              >
+                <p class="support-story-card__eyebrow">Anonymous story</p>
+                <h4>{{ activeSupportGuideChoice.storyTitle }}</h4>
+                <p>{{ activeSupportGuideChoice.storyBody }}</p>
+              </section>
+
+              <div
+                :id="`support-guide-${activeSupportGuideData.id}`"
+                class="support-guidance-box"
+                role="status"
+                aria-live="polite"
+              >
+                <span class="support-guidance-box__label">
+                  {{ activeSupportGuideChoice?.riskLabel || activeSupportGuideData.riskLabel }}
+                </span>
+                <p class="support-guidance-box__explanation">
+                  {{ activeSupportGuideChoice?.explanation || activeSupportGuideData.explanation }}
+                </p>
+                <p class="support-guidance-box__action">
+                  {{ activeSupportGuideChoice?.action || activeSupportGuideData.action }}
+                </p>
+              </div>
+
+              <section
+                v-if="activeSupportGuideData.id === 'emotional'"
+                class="support-chat-panel"
+                aria-label="AI-style emotional support chat"
+              >
+                <div class="support-chat-panel__head">
+                  <p>Instant support chat</p>
+                  <p class="support-chat-panel__hint">
+                    {{ activeEmotionalVariant?.title || 'Emotional support' }} mode
+                  </p>
+                </div>
+
+                <p class="support-chat-panel__note">
+                  This AI-style chat gives calm first-step support while you decide what to do next.
+                </p>
+
+                <div class="support-chat-thread" role="log" aria-live="polite">
+                  <article
+                    v-for="message in emotionalSupportMessages"
+                    :key="message.id"
+                    class="support-chat-message"
+                    :class="{
+                      'support-chat-message--assistant': message.role === 'assistant',
+                      'support-chat-message--user': message.role === 'user',
+                    }"
+                  >
+                    <span class="support-chat-message__role">
+                      {{ message.role === 'assistant' ? 'Support' : 'You' }}
+                    </span>
+                    <p>{{ message.text }}</p>
+                  </article>
+                </div>
+
+                <div class="support-chat-prompts" aria-label="Suggested prompts">
+                  <button
+                    v-for="prompt in emotionalSupportPrompts"
+                    :key="prompt"
+                    type="button"
+                    class="support-chat-prompt"
+                    @click="stageEmotionalSupportPrompt(prompt)"
+                  >
+                    {{ prompt }}
+                  </button>
+                </div>
+
+                <p class="support-chat-panel__note">
+                  Tap a suggested prompt to place it in the chat box, then press Send when you are
+                  ready.
+                </p>
+
+                <form class="support-chat-form" @submit.prevent="sendEmotionalSupportMessage()">
+                  <label class="support-chat-form__label" for="support-emotional-chat">
+                    Tell the chat what feels hardest right now
+                  </label>
+                  <textarea
+                    id="support-emotional-chat"
+                    v-model="emotionalSupportInput"
+                    class="support-chat-form__input"
+                    rows="3"
+                    placeholder="I feel embarrassed and my mind will not slow down..."
+                  />
+                  <div class="support-chat-form__actions">
+                    <button type="submit" class="support-chat-form__button">Send</button>
+                  </div>
+                </form>
+              </section>
+
+              <section class="support-links-panel" aria-label="Official support links">
+                <div class="support-links-panel__head">
+                  <p>Official actions</p>
+                  <p class="support-links-panel__hint">Open a support path now</p>
+                </div>
+
+                <div class="support-guidance-box__links">
+                  <a
+                    v-for="link in activeSupportGuideChoice?.links || activeSupportGuideData.links"
+                    :key="link.href"
+                    class="support-guidance-box__link"
+                    :href="link.href"
+                    :aria-label="supportLinkAriaLabel(link)"
+                    :title="link.href.startsWith('http') ? 'Opens in a new tab' : 'Starts a phone call'"
+                    :target="link.href.startsWith('http') ? '_blank' : null"
+                    :rel="link.href.startsWith('http') ? 'noopener noreferrer' : null"
+                    :referrerpolicy="link.href.startsWith('http') ? 'no-referrer' : null"
+                  >
+                    <span>{{ link.label }}</span>
+                    <ArrowRight :size="14" aria-hidden="true" />
+                  </a>
+                </div>
+              </section>
+            </div>
           </div>
         </div>
       </section>
@@ -4541,6 +5192,11 @@ h1 {
   color: rgba(252, 247, 241, 0.78);
 }
 
+.support-section {
+  min-height: auto;
+  overflow: visible;
+}
+
 .section-copy {
   color: #6b7280;
   line-height: 1.7;
@@ -4576,43 +5232,537 @@ h1 {
   height: 120px;
 }
 
-.feature-preview-grid {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.feature-preview {
+.support-head {
   align-items: center;
   background: #ffffff;
   border-left: 4px solid #1b2e5e;
   border-radius: 0;
   color: #1a1a2a;
   display: grid;
-  gap: 8px;
-  min-height: 120px;
-  padding: 16px 18px;
-  position: relative;
+  gap: 12px;
+  grid-template-columns: 76px minmax(0, 1fr);
+  margin-bottom: 14px;
+  padding: 16px;
 }
 
-.feature-preview h3 {
-  color: #1a1a2a;
+.support-head__inset {
+  align-items: center;
+  background: #eef2ff;
+  border: 1px solid #e5e2dc;
+  border-radius: 12px;
+  color: #1f2d6b;
+  display: flex;
+  height: 76px;
+  justify-content: center;
+  width: 76px;
+}
+
+.support-head__kicker {
+  color: #6b7280;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0 0 12px;
+  text-transform: uppercase;
+}
+
+.support-head__title {
+  border-left: 3px solid #d0312d;
+  color: #1f2d6b;
+  font-size: clamp(1.8rem, 3.5vw, 2.6rem);
+  font-weight: 800;
+  line-height: 1.08;
+  margin: 0 0 12px;
+  padding-left: 12px;
+}
+
+.support-head__title::after {
+  background: #d0312d;
+  content: '';
+  display: block;
+  height: 3px;
+  margin-top: 8px;
+  width: 40px;
+}
+
+.support-head__summary {
+  color: #6b7280;
+  line-height: 1.55;
+  margin: 0;
+  max-width: 760px;
+}
+
+.support-editor-grid {
+  align-items: start;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(220px, 0.56fr) minmax(0, 1.44fr);
+}
+
+.support-rail {
+  background: #ffffff;
+  border: 1px solid #e5e2dc;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(26, 26, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+}
+
+.support-rail__hint {
+  color: #6b7280;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  margin: 0 0 2px;
+}
+
+.support-mode-button {
+  align-items: center;
+  background: #f9f7f4;
+  border: 1px solid #e5e2dc;
+  border-radius: 8px;
+  color: #1f2d6b;
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 28px minmax(0, 1fr);
+  min-height: 52px;
+  padding: 12px 14px;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.support-mode-button:hover,
+.support-mode-button:focus-visible {
+  border-color: #d0312d;
+}
+
+.support-mode-button--active {
+  background: #1f2d6b;
+  border-color: #1f2d6b;
+  border-left: 3px solid #d0312d;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.14);
+  color: #ffffff;
+}
+
+.support-mode-button__icon {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.support-mode-button__text {
+  font-size: 0.96rem;
+  font-weight: 600;
+}
+
+.support-rail-card {
+  background: #ffffff;
+  border: 1px solid #e5e2dc;
+  border-radius: 10px;
+  margin-top: 8px;
+  padding: 16px;
+}
+
+.support-rail-card__title {
+  color: #6b7280;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.support-rail-card__copy {
+  color: #6b7280;
+  font-size: 0.9rem;
+  line-height: 1.5;
   margin: 0;
 }
 
-.feature-preview span {
-  background: transparent;
-  border-radius: 0;
-  color: #6b7280;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 0;
-  position: static;
+.support-pane {
+  background: #ffffff;
+  border: 1px solid #e5e2dc;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(26, 26, 42, 0.06);
+  display: grid;
+  gap: 16px;
+  padding: 18px;
 }
 
-.feature-preview-note {
+.support-pane__head {
+  align-items: start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.support-pane__head p {
   color: #6b7280;
-  margin: 14px 0 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.support-pane__mode {
+  color: #1f2d6b !important;
+}
+
+.support-pane__intro-card {
+  align-items: center;
+  background: #f9f7f4;
+  border: 1px solid #e5e2dc;
+  border-radius: 10px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 56px minmax(0, 1fr);
+  padding: 16px;
+}
+
+.support-pane__intro-icon {
+  align-items: center;
+  background: #eef2ff;
+  border-radius: 12px;
+  color: #1f2d6b;
+  display: flex;
+  height: 56px;
+  justify-content: center;
+  width: 56px;
+}
+
+.support-pane__intro-card h3 {
+  color: #1a1a2a;
+  font-size: 1.08rem;
+  line-height: 1.25;
+  margin: 0 0 6px;
+}
+
+.support-pane__intro-card p {
+  color: #5f6775;
+  font-size: 0.96rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.support-choice-panel,
+.support-story-card {
+  background: #f9f7f4;
+  border: 1px solid #e5e2dc;
+  border-radius: 10px;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.support-choice-panel__head p,
+.support-story-card__eyebrow {
+  color: #6b7280;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.support-choice-panel__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.support-choice-button {
+  background: #ffffff;
+  border: 1px solid #e5e2dc;
+  border-radius: 999px;
+  color: #1f2d6b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  min-height: 38px;
+  padding: 8px 14px;
+}
+
+.support-choice-button:hover,
+.support-choice-button:focus-visible {
+  border-color: #d0312d;
+  color: #d0312d;
+}
+
+.support-choice-button--active {
+  background: #1f2d6b;
+  border-color: #1f2d6b;
+  color: #ffffff;
+}
+
+.support-story-card h4 {
+  color: #1a1a2a;
+  font-size: 1rem;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.support-story-card p:last-child {
+  color: #5f6775;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.support-guidance-box {
+  animation: resultFadeIn 0.22s ease-out both;
+  background: linear-gradient(180deg, #eef2ff 0%, #ffffff 100%);
+  border: 1px solid #d5ddff;
+  border-radius: 14px;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.support-guidance-box__label {
+  background: #1f2d6b;
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-right: auto;
+  padding: 5px 10px;
+  text-transform: uppercase;
+}
+
+.support-guidance-box__explanation,
+.support-guidance-box__action {
+  font-size: 0.97rem;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.support-guidance-box__explanation {
+  color: #1a1a2a;
+}
+
+.support-guidance-box__action {
+  color: #1f2d6b;
+  font-weight: 700;
+}
+
+.support-guidance-box__links {
+  display: grid;
+  gap: 10px;
+}
+
+.support-guidance-box__link {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #cdd7ff;
+  border-radius: 12px;
+  color: #1f2d6b;
+  display: inline-flex;
+  font-size: 0.91rem;
+  font-weight: 700;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 10px 12px;
+  text-decoration: none;
+}
+
+.support-chat-panel {
+  border: 1px solid #e5e2dc;
+  border-radius: 10px;
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.support-chat-panel__head {
+  align-items: start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.support-chat-panel__head p {
+  color: #1f2d6b;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.support-chat-panel__hint,
+.support-chat-panel__note {
+  color: #6b7280 !important;
+}
+
+.support-chat-panel__note {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.support-chat-thread {
+  background: #f9f7f4;
+  border: 1px solid #e5e2dc;
+  border-radius: 10px;
+  display: grid;
+  gap: 10px;
+  max-height: 320px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.support-chat-message {
+  border-radius: 12px;
+  display: grid;
+  gap: 6px;
+  max-width: min(92%, 560px);
+  padding: 10px 12px;
+}
+
+.support-chat-message--assistant {
+  background: #eef2ff;
+  border: 1px solid #d5ddff;
+  justify-self: start;
+}
+
+.support-chat-message--user {
+  background: #1f2d6b;
+  border: 1px solid #1f2d6b;
+  color: #ffffff;
+  justify-self: end;
+}
+
+.support-chat-message__role {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.support-chat-message--assistant .support-chat-message__role {
+  color: #1f2d6b;
+}
+
+.support-chat-message--user .support-chat-message__role {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.support-chat-message p {
+  line-height: 1.55;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.support-chat-prompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.support-chat-prompt {
+  background: #ffffff;
+  border: 1px solid #e5e2dc;
+  border-radius: 999px;
+  color: #1f2d6b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  min-height: 34px;
+  padding: 6px 12px;
+}
+
+.support-chat-prompt:hover,
+.support-chat-prompt:focus-visible {
+  border-color: #d0312d;
+  color: #d0312d;
+}
+
+.support-chat-form {
+  display: grid;
+  gap: 10px;
+}
+
+.support-chat-form__label {
+  color: #6b7280;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.support-chat-form__input {
+  background: #ffffff;
+  border: 1px solid #e5e2dc;
+  border-radius: 10px;
+  color: #1a1a2a;
+  font: inherit;
+  line-height: 1.5;
+  min-height: 96px;
+  padding: 12px 14px;
+  resize: vertical;
+}
+
+.support-chat-form__input:focus {
+  border-color: #1f2d6b;
+  outline: 2px solid rgba(31, 45, 107, 0.12);
+  outline-offset: 0;
+}
+
+.support-chat-form__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.support-chat-form__button {
+  background: #1f2d6b;
+  border: 0;
+  border-radius: 10px;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  min-height: 42px;
+  padding: 10px 18px;
+}
+
+.support-chat-form__button:hover,
+.support-chat-form__button:focus-visible {
+  background: #182354;
+}
+
+.support-links-panel {
+  border: 1px solid #e5e2dc;
+  border-radius: 10px;
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.support-links-panel__head {
+  align-items: start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.support-links-panel__head p {
+  color: #1f2d6b;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.support-links-panel__hint {
+  color: #6b7280 !important;
 }
 
 /* ── Pre-footer CTA band ───────────────────────────────── */
@@ -4716,7 +5866,7 @@ h1 {
 
 .site-footer__inner {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .site-footer__brand {
@@ -5202,8 +6352,12 @@ h1 {
   }
 
   .hero-band__inner,
-  .info-grid__inner,
-  .feature-preview-grid {
+  .info-grid__inner {
+    grid-template-columns: 1fr;
+  }
+
+  .support-head,
+  .support-editor-grid {
     grid-template-columns: 1fr;
   }
 
@@ -5348,6 +6502,34 @@ h1 {
 
   .site-footer__team {
     justify-content: flex-start;
+  }
+
+  .support-pane {
+    padding: 16px;
+  }
+
+  .support-pane__intro-card {
+    grid-template-columns: 1fr;
+  }
+
+  .support-head__title,
+  .support-pane__intro-card h3,
+  .support-story-card h4,
+  .support-chat-message p,
+  .support-guidance-box__explanation,
+  .support-guidance-box__action,
+  .support-rail-card__copy,
+  .support-pane__intro-card p,
+  .support-story-card p:last-child {
+    font-size: 0.95rem;
+  }
+
+  .support-mode-button,
+  .support-chat-prompt,
+  .support-chat-form__button,
+  .support-choice-button,
+  .support-guidance-box__link {
+    font-size: 0.9rem;
   }
 }
 
