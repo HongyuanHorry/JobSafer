@@ -76,38 +76,44 @@ function choose(opt) {
 
 <style scoped>
 .simulation-stage {
-  background: #fffbf7;
+  background: #FCF7F1;
   border-radius: 18px;
-  border: 1px solid rgba(27, 46, 94, 0.12);
-  box-shadow: 0 12px 24px rgba(27, 46, 94, 0.08);
-  padding: 20px;
+  border: 1px solid #E3D7C8;
+  border-left: 4px solid #3B6F8F;
+  box-shadow: 0 8px 20px rgba(59, 111, 143, 0.1);
+  padding: 24px;
   display: grid;
-  gap: 18px;
+  gap: 20px;
 }
 
 .stage-header h3 {
-  margin: 6px 0 8px;
-  font-size: 1.25rem;
-  color: #1b2e5e;
+  margin: 8px 0 10px;
+  font-size: 1.45rem;
+  color: #1B2E5E;
+  font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 .stage-kicker {
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #0d9488;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #3B6F8F;
 }
 
 .stage-subtitle {
   margin: 0;
-  color: #6b7280;
+  color: #5a5a5a;
+  font-size: 1rem;
 }
 
 .stage-description {
-  margin: 10px 0 0;
-  color: #4b5563;
+  margin: 8px 0 0;
+  color: #2B2B2B;
+  font-size: 1rem;
+  line-height: 1.6;
 }
 
 .stage-visual {
@@ -129,18 +135,20 @@ function choose(opt) {
 }
 
 .bubble {
-  padding: 14px 16px;
+  padding: 16px 18px;
   border-radius: 16px;
   display: grid;
-  gap: 6px;
-  line-height: 1.5;
+  gap: 7px;
+  font-size: 1rem;
+  line-height: 1.6;
   animation: bubbleIn 0.3s ease;
   position: relative;
 }
 
 .bubble--recruiter {
-  background: #f7efe5;
-  color: #1b2e5e;
+  background: #F4EDE0;
+  border: 1px solid #E3D7C8;
+  color: #1B2E5E;
   justify-self: start;
   max-width: 88%;
 }
@@ -152,14 +160,15 @@ function choose(opt) {
   bottom: 8px;
   width: 12px;
   height: 12px;
-  background: #f7efe5;
+  background: #F4EDE0;
   border-radius: 0 0 10px 0;
   transform: rotate(45deg);
 }
 
 .bubble--alex {
-  background: linear-gradient(135deg, #fff4dc 0%, #f7efe5 100%);
-  color: #1b2e5e;
+  background: #EEF4FF;
+  border: 1px solid rgba(59, 111, 143, 0.2);
+  color: #1B2E5E;
   justify-self: end;
   max-width: 88%;
 }
@@ -171,16 +180,17 @@ function choose(opt) {
   bottom: 8px;
   width: 12px;
   height: 12px;
-  background: #f7efe5;
+  background: #EEF4FF;
   border-radius: 0 0 0 10px;
   transform: rotate(45deg);
 }
 
 .bubble-role {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #0d9488;
+  color: #7A9A82;
 }
 
 .stage-actions {
@@ -200,28 +210,32 @@ function choose(opt) {
 }
 
 .detail-block {
-  background: #f7efe5;
+  background: #F4EDE0;
   border-radius: 14px;
-  padding: 12px 14px;
-  border: 1px solid rgba(27, 46, 94, 0.08);
+  padding: 16px 18px;
+  border: 1px solid #E3D7C8;
+  border-left: 4px solid #D8A24A;
 }
 
 .detail-block h4 {
   margin: 0 0 8px;
-  color: #1b2e5e;
-  font-size: 0.95rem;
+  color: #1B2E5E;
+  font-size: 1rem;
+  font-weight: 700;
 }
 
 .detail-hint {
-  margin: -2px 0 8px;
-  color: #6b7280;
-  font-size: 0.82rem;
+  margin: -2px 0 10px;
+  color: #5a5a5a;
+  font-size: 0.88rem;
 }
 
 .detail-block ul {
   margin: 0;
   padding-left: 18px;
-  color: #4b5563;
+  color: #2B2B2B;
+  font-size: 0.96rem;
+  line-height: 1.65;
 }
 
 .detail-empty {
@@ -231,13 +245,15 @@ function choose(opt) {
 }
 
 .choice {
-  background: #1b2e5e;
+  background: #1B2E5E;
   border: 0;
   border-radius: 14px;
-  color: #ffffff;
+  color: #FCF7F1;
   cursor: pointer;
+  font-size: 1rem;
   font-weight: 600;
-  padding: 12px 14px;
+  line-height: 1.4;
+  padding: 14px 18px;
   text-align: left;
   transition:
     transform 0.2s ease,
