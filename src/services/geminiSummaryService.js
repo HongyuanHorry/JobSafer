@@ -6,33 +6,9 @@ import {
   sanitizeForUiDisplay,
 } from '../utils/clientSecurity.js'
 
-const GEMINI_API_KEY = (import.meta.env.VITE_GEMINI_API_KEY || '').trim()
 const GEMINI_CLIENT_ENABLED = import.meta.env.VITE_GEMINI_ENABLED !== 'false'
-
-/** Single model only — flash-lite for cost; never fall back to full flash. */
-const GEMINI_MODEL_ID = 'gemini-2.5-flash-lite'
-
-const GEMINI_MODEL_ALIASES = {
-  'gemini-1.5-flash': GEMINI_MODEL_ID,
-  'gemini-1.5-flash-latest': GEMINI_MODEL_ID,
-  'gemini-1.5-flash-001': GEMINI_MODEL_ID,
-  'gemini-1.5-pro': GEMINI_MODEL_ID,
-  'gemini-2.0-flash': GEMINI_MODEL_ID,
-  'gemini-2.0-flash-001': GEMINI_MODEL_ID,
-  'gemini-2.0-flash-exp': GEMINI_MODEL_ID,
-  'gemini-2.5-flash': GEMINI_MODEL_ID,
-  'gemini-2.5-flash-lite': GEMINI_MODEL_ID,
-}
-
-function resolveGeminiModel(raw) {
-  const id = (raw || GEMINI_MODEL_ID).trim()
-  return GEMINI_MODEL_ALIASES[id] || GEMINI_MODEL_ID
-}
-
-const GEMINI_MODEL = resolveGeminiModel(import.meta.env.VITE_GEMINI_MODEL)
-
-const GEMINI_MAX_OUTPUT_TOKENS = 384
-const GEMINI_TIMEOUT_MS = 12_000
+const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
+const GEMINI_COACH_ENDPOINT = `${API_BASE}/api/gemini/coach-summary`
 
 const MAX_CHARS = {
   summary: 400,
@@ -44,27 +20,6 @@ const MAX_CHARS = {
 
 const MAX_SUMMARY_WORDS = 72
 const MAX_HISTORY_ROWS = 5
-
-const GEMINI_COACH_RESPONSE_SCHEMA = {
-  type: 'object',
-  properties: {
-    summary: {
-      type: 'string',
-      description: `English paragraph from learner taps + risk tags. Max ~${MAX_SUMMARY_WORDS} words.`,
-    },
-    topRisk: { type: 'string', description: 'One sentence: strongest pattern they hit.' },
-    nextAction: {
-      type: 'string',
-      description: 'One sentence: verify/pause/report habit. No money transfers.',
-    },
-    hesitationInsight: {
-      type: 'string',
-      description: 'One sentence on dwell vs median per stage, or "" if none.',
-    },
-    tone: { type: 'string', description: '2–3 hyphenated English words.' },
-  },
-  required: ['summary', 'topRisk', 'nextAction', 'hesitationInsight', 'tone'],
-}
 
 const NON_LATIN_SCRIPTS =
   /[\u0370-\u03FF\u0400-\u04FF\u0600-\u06FF\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]/u
@@ -82,23 +37,8 @@ const UNSAFE_PATTERNS = [
   /\b(otp|one[- ]?time\s*code|2fa|verification\s*code)\b.*\b(share|tell|provide|give|screenshot)\b/i,
 ]
 
-function geminiModelsToTry() {
-  return [GEMINI_MODEL]
-}
-
-function isGeminiModelUnavailableMessage(message) {
-  if (!message || typeof message !== 'string') return false
-  const m = message.toLowerCase()
-  return (
-    m.includes('not found for api version') ||
-    m.includes('not supported for generatecontent') ||
-    m.includes('no longer available') ||
-    (m.includes('is not found') && m.includes('models/'))
-  )
-}
-
-function classifyGeminiFailure(httpStatus, googleMessage) {
-  const msg = String(googleMessage || '').trim()
+function classifyGeminiFailure(httpStatus, backendMessage) {
+  const msg = String(backendMessage || '').trim()
   if (isBillingCapMessage(msg) || httpStatus === 429) {
     return {
       reason: 'billing_cap',
@@ -115,20 +55,6 @@ function classifyGeminiFailure(httpStatus, googleMessage) {
     reason: 'request_failed',
     detail: sanitizeForUiDisplay(msg || `HTTP ${httpStatus}`),
   }
-}
-
-function withTimeout(promise, timeoutMs) {
-  let timerId = null
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => {
-      timerId = setTimeout(() => {
-        reject(new Error('Gemini request timed out.'))
-      }, timeoutMs)
-    }),
-  ]).finally(() => {
-    if (timerId) clearTimeout(timerId)
-  })
 }
 
 function clip(s, max) {
@@ -219,7 +145,8 @@ function normalizeCoachPayload(raw) {
 
   if (!summary || !topRisk || !nextAction || !tone) return null
 
-  if (summary.length > MAX_CHARS.summary) summary = `${summary.slice(0, MAX_CHARS.summary - 1).trim()}…`
+  if (summary.length > MAX_CHARS.summary)
+    summary = `${summary.slice(0, MAX_CHARS.summary - 1).trim()}…`
   if (topRisk.length > MAX_CHARS.topRisk) return null
   if (nextAction.length > MAX_CHARS.nextAction) return null
   if (hesitationInsight.length > MAX_CHARS.hesitationInsight) return null
@@ -233,81 +160,12 @@ function normalizeCoachPayload(raw) {
   return pack
 }
 
-function extractJsonObject(text) {
-  if (!text) return null
-  const trimmed = text.trim()
-  const unfenced = trimmed
-    .replace(/^```(?:json)?\s*/iu, '')
-    .replace(/\s*```$/u, '')
-    .trim()
-
-  const tryParse = (s) => {
-    try {
-      return JSON.parse(s)
-    } catch {
-      return null
-    }
-  }
-
-  const direct = tryParse(unfenced)
-  if (direct && typeof direct === 'object') return direct
-
-  const start = unfenced.indexOf('{')
-  const end = unfenced.lastIndexOf('}')
-  if (start < 0 || end < 0 || end <= start) return null
-  return tryParse(unfenced.slice(start, end + 1))
-}
-
-function mergeGenerationPayload(bodyTemplate, promptText) {
-  return {
-    ...bodyTemplate,
-    contents: [{ role: 'user', parts: [{ text: promptText }] }],
-  }
-}
-
-async function postGeminiCoach(modelId, body) {
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-    modelId,
-  )}:generateContent`
-
-  const response = await withTimeout(
-    fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': GEMINI_API_KEY,
-      },
-      body: JSON.stringify(body),
-      referrerPolicy: 'no-referrer',
-    }),
-    GEMINI_TIMEOUT_MS,
-  )
-
-  const payload = await response.json().catch(() => ({}))
-  const text =
-    payload?.candidates?.[0]?.content?.parts
-      ?.map((part) => (typeof part?.text === 'string' ? part.text : ''))
-      .join(' ') || ''
-
-  const finishReason = payload?.candidates?.[0]?.finishReason
-
-  return { response, payload, text, finishReason }
-}
-
 export async function generateGeminiSummary(input) {
   if (!GEMINI_CLIENT_ENABLED) {
     return {
       ok: false,
       reason: 'gemini_disabled',
       detail: 'Gemini calls are disabled via VITE_GEMINI_ENABLED=false.',
-    }
-  }
-
-  if (!GEMINI_API_KEY) {
-    return {
-      ok: false,
-      reason: 'missing_api_key',
-      detail: 'No Gemini API key configured.',
     }
   }
 
@@ -319,64 +177,68 @@ export async function generateGeminiSummary(input) {
     }
   }
 
-  const bodyTemplate = {
-    contents: [],
-    generationConfig: {
-      temperature: 0.28,
-      topP: 0.82,
-      maxOutputTokens: GEMINI_MAX_OUTPUT_TOKENS,
-      responseMimeType: 'application/json',
-      responseSchema: GEMINI_COACH_RESPONSE_SCHEMA,
-    },
-  }
+  const prompt = buildCoachPrompt(input, false)
+  const repairPrompt = buildCoachPrompt(input, true)
 
   try {
-    let lastFailDetail = ''
-    const modelId = geminiModelsToTry()[0]
-    const prompts = [buildCoachPrompt(input, false), buildCoachPrompt(input, true)]
+    const response = await fetch(GEMINI_COACH_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt,
+        repairPrompt,
+        metadata: {
+          scenarioType: String(input?.scenarioType || ''),
+          highPressure: Boolean(input?.highPressure),
+          riskCount: Number(input?.riskCount || 0),
+        },
+      }),
+    })
 
-    for (let p = 0; p < prompts.length; p += 1) {
-      const { response, payload, text, finishReason } = await postGeminiCoach(
-        modelId,
-        mergeGenerationPayload(bodyTemplate, prompts[p]),
-      )
+    const payload = await response.json().catch(() => ({}))
 
-      if (!response.ok) {
-        const googleMsg =
-          typeof payload?.error?.message === 'string' ? payload.error.message.trim() : ''
-        const classified = classifyGeminiFailure(response.status, googleMsg)
-        lastFailDetail = classified.detail
-        if (classified.reason === 'billing_cap') {
-          return classified
-        }
-        return classified
-      }
+    if (!response.ok) {
+      const detail =
+        typeof payload?.detail === 'string'
+          ? payload.detail
+          : typeof payload?.message === 'string'
+            ? payload.message
+            : ''
+      return classifyGeminiFailure(response.status, detail)
+    }
 
-      const gated = typeof text === 'string' ? text.trim() : ''
-      const blockCombined = finishReason || payload?.promptFeedback?.blockReason
-      if (!gated && blockCombined) {
-        lastFailDetail = String(blockCombined)
-        continue
-      }
-
-      const parsed = extractJsonObject(gated || text || '')
-      const validated = normalizeCoachPayload(parsed)
-
+    if (payload?.ok === true && payload?.data) {
+      const validated = normalizeCoachPayload(payload.data)
       if (validated) {
-        devLog('gemini coach ok', modelId)
-        return { ok: true, data: validated, modelId }
+        devLog('gemini coach ok (backend proxy)', payload?.modelId || 'unknown')
+        return {
+          ok: true,
+          data: validated,
+          modelId: payload?.modelId || 'backend-proxy',
+        }
       }
 
-      lastFailDetail = [
-        finishReason === 'MAX_TOKENS' ? 'truncated_hit_max_tokens' : 'invalid_or_unsafe',
-        typeof text === 'string' ? text.slice(0, 120) : '',
-      ].join(' ')
+      return {
+        ok: false,
+        reason: 'request_failed',
+        detail: 'Gemini returned invalid or unsafe payload.',
+      }
+    }
+
+    if (payload && payload.ok === false) {
+      return {
+        ok: false,
+        reason: String(payload.reason || 'request_failed'),
+        detail: sanitizeForUiDisplay(String(payload.detail || 'Gemini request failed.')),
+      }
     }
 
     return {
       ok: false,
       reason: 'request_failed',
-      detail: lastFailDetail || 'Gemini request failed.',
+      detail: 'Gemini proxy returned unexpected payload.',
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err || '')
