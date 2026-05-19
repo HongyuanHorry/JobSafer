@@ -527,7 +527,7 @@ const activeEmotionalVariant = computed(() => {
   const selectedId = supportGuideSelections.emotional || emotionalGuide.variants[0].id
   return emotionalGuide.variants.find((variant) => variant.id === selectedId) || emotionalGuide.variants[0]
 })
-const emotionalSupportInput = ref('')
+const supportChatThreadRef = ref(null)
 const emotionalSupportMessages = ref([])
 const emotionalSupportPrompts = computed(() => {
   const variantId = supportGuideSelections.emotional
@@ -1093,10 +1093,6 @@ function setSupportGuideVariant(guideId, variantId) {
   supportGuideSelections[guideId] = variantId
 }
 
-function stageEmotionalSupportPrompt(prompt) {
-  emotionalSupportInput.value = String(prompt || '')
-}
-
 function nextEmotionalSupportMessage(role, text) {
   emotionalSupportMessageId += 1
   return {
@@ -1211,7 +1207,16 @@ function getEmotionalSupportStarter(variantId) {
 
 function resetEmotionalSupportChat(variantId = supportGuideSelections.emotional) {
   emotionalSupportMessages.value = [nextEmotionalSupportMessage('assistant', getEmotionalSupportStarter(variantId))]
-  emotionalSupportInput.value = ''
+}
+
+async function scrollEmotionalSupportThreadToLatest() {
+  await nextTick()
+  if (!(supportChatThreadRef.value instanceof HTMLElement)) return
+
+  supportChatThreadRef.value.scrollTo({
+    top: supportChatThreadRef.value.scrollHeight,
+    behavior: 'smooth',
+  })
 }
 
 function buildEmotionalSupportReply(message) {
@@ -1272,15 +1277,15 @@ function buildEmotionalSupportReply(message) {
   return `Thank you for telling me that. Since you selected ${emotion.title}, I will keep my response grounded in that feeling.\n\nWhat I notice: something about this still feels heavy and unsettled for you.\nWhat is true: your reaction makes sense, and you do not have to earn care by explaining it perfectly.\nNext step: pause for one breath, write down the facts without judgment, and pick one supportive action only.\n\nIf you want, send me the hardest thought in your head right now, and I will help you work through that one thought first.`
 }
 
-function sendEmotionalSupportMessage(prefill = '') {
-  const content = String(prefill || emotionalSupportInput.value || '').trim()
+async function sendEmotionalSupportMessage(prefill = '') {
+  const content = String(prefill || '').trim()
   if (!content) return
 
   emotionalSupportMessages.value.push(nextEmotionalSupportMessage('user', content))
   emotionalSupportMessages.value.push(
     nextEmotionalSupportMessage('assistant', buildEmotionalSupportReply(content)),
   )
-  emotionalSupportInput.value = ''
+  await scrollEmotionalSupportThreadToLatest()
 }
 
 watch(
@@ -2613,7 +2618,7 @@ async function unlockSite() {
                   This AI-style chat gives calm first-step support while you decide what to do next.
                 </p>
 
-                <div class="support-chat-thread" role="log" aria-live="polite">
+                <div ref="supportChatThreadRef" class="support-chat-thread" role="log" aria-live="polite">
                   <article
                     v-for="message in emotionalSupportMessages"
                     :key="message.id"
@@ -2636,32 +2641,15 @@ async function unlockSite() {
                     :key="prompt"
                     type="button"
                     class="support-chat-prompt"
-                    @click="stageEmotionalSupportPrompt(prompt)"
+                    @click="sendEmotionalSupportMessage(prompt)"
                   >
                     {{ prompt }}
                   </button>
                 </div>
 
                 <p class="support-chat-panel__note">
-                  Tap a suggested prompt to place it in the chat box, then press Send when you are
-                  ready.
+                  Choose one fixed option above and the chat will respond right away.
                 </p>
-
-                <form class="support-chat-form" @submit.prevent="sendEmotionalSupportMessage()">
-                  <label class="support-chat-form__label" for="support-emotional-chat">
-                    Tell the chat what feels hardest right now
-                  </label>
-                  <textarea
-                    id="support-emotional-chat"
-                    v-model="emotionalSupportInput"
-                    class="support-chat-form__input"
-                    rows="3"
-                    placeholder="I feel embarrassed and my mind will not slow down..."
-                  />
-                  <div class="support-chat-form__actions">
-                    <button type="submit" class="support-chat-form__button">Send</button>
-                  </div>
-                </form>
               </section>
 
               <section class="support-links-panel" aria-label="Official support links">
@@ -5613,7 +5601,7 @@ h1 {
   border-radius: 10px;
   display: grid;
   gap: 10px;
-  max-height: 320px;
+  max-height: 400px;
   overflow: auto;
   padding: 12px;
 }
@@ -5683,58 +5671,6 @@ h1 {
 .support-chat-prompt:focus-visible {
   border-color: #d0312d;
   color: #d0312d;
-}
-
-.support-chat-form {
-  display: grid;
-  gap: 10px;
-}
-
-.support-chat-form__label {
-  color: #6b7280;
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
-.support-chat-form__input {
-  background: #ffffff;
-  border: 1px solid #e5e2dc;
-  border-radius: 10px;
-  color: #1a1a2a;
-  font: inherit;
-  line-height: 1.5;
-  min-height: 96px;
-  padding: 12px 14px;
-  resize: vertical;
-}
-
-.support-chat-form__input:focus {
-  border-color: #1f2d6b;
-  outline: 2px solid rgba(31, 45, 107, 0.12);
-  outline-offset: 0;
-}
-
-.support-chat-form__actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.support-chat-form__button {
-  background: #1f2d6b;
-  border: 0;
-  border-radius: 10px;
-  color: #ffffff;
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.92rem;
-  font-weight: 700;
-  min-height: 42px;
-  padding: 10px 18px;
-}
-
-.support-chat-form__button:hover,
-.support-chat-form__button:focus-visible {
-  background: #182354;
 }
 
 .support-links-panel {
@@ -6526,7 +6462,6 @@ h1 {
 
   .support-mode-button,
   .support-chat-prompt,
-  .support-chat-form__button,
   .support-choice-button,
   .support-guidance-box__link {
     font-size: 0.9rem;
