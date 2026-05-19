@@ -8,8 +8,8 @@
       </div>
     </Transition>
     <div v-if="isFullscreen" class="fullscreen-bar">
-      <span class="fullscreen-bar__label">🔒 Fullscreen mode — press Esc to exit</span>
-      <button class="fullscreen-bar__exit" type="button" @click="exitFullscreen">✕ Exit</button>
+      <span class="fullscreen-bar__label">Fullscreen mode - press Esc to exit</span>
+      <button class="fullscreen-bar__exit" type="button" @click="exitFullscreen">Exit</button>
     </div>
     <div class="sim-wrapper">
       <Transition name="sim-shell-fade" mode="out-in">
@@ -33,7 +33,7 @@
             <div class="sim-copy sim-copy--intro">
               <p class="sim-meta">
                 {{ scenario.title }}
-                <span class="sim-meta__sep"> · </span>
+                <span class="sim-meta__sep"> - </span>
                 <span v-if="stage === 0">Introduction</span>
                 <span v-else>Stage {{ stageLabel }} of 5</span>
               </p>
@@ -60,7 +60,7 @@
               <p class="lead intro-lead">
                 <span class="intro-lead__full"
                   >You'll step into Alex's shoes through a realistic job scam scenario. Watch how
-                  pressure and urgency build—then discover the red flags that save the day.</span
+                  pressure and urgency build, then discover the red flags that save the day.</span
                 >
                 <span class="intro-lead__short"
                   >Step into the scam. Learn how to spot the red flags.</span
@@ -82,11 +82,14 @@
               </div>
 
               <div class="actions">
-                <button class="primary" type="button" @click="nextStage">Start scenario →</button>
+                <button class="primary" type="button" @click="openFullscreenPrompt">
+                  Start scenario ->
+                </button>
                 <button class="secondary" type="button" @click="$emit('exit')">
                   Back to choose another scam type
                 </button>
               </div>
+
             </div>
           </template>
 
@@ -148,7 +151,7 @@
             >
               <div class="wt-stage-mobile-stack">
                 <header class="scene-head scene-head--mobile">
-                  <p class="sim-meta">{{ scenario.title }} · Stage {{ stageLabel }} of 5</p>
+                  <p class="sim-meta">{{ scenario.title }} - Stage {{ stageLabel }} of 5</p>
                   <div
                     class="progress-line"
                     role="progressbar"
@@ -199,7 +202,7 @@
               </section>
 
               <header class="scene-head scene-head--desktop">
-                <p class="sim-meta">{{ scenario.title }} · Stage {{ stageLabel }} of 5</p>
+                <p class="sim-meta">{{ scenario.title }} - Stage {{ stageLabel }} of 5</p>
                 <div
                   class="progress-line"
                   role="progressbar"
@@ -224,11 +227,11 @@
                 <div class="risk-signal risk-signal--editorial">
                   <p class="risk-signal__kicker">Risk signal</p>
                   <p class="risk-signal__tag risk-signal__tag--desktop">
-                    <span class="risk-signal__glyph" aria-hidden="true">⚠</span>
-                    Risk signal · {{ currentStage.riskTag }}
+                    <span class="risk-signal__glyph" aria-hidden="true">!</span>
+                    Risk signal - {{ currentStage.riskTag }}
                   </p>
                   <p class="risk-signal__tag risk-signal__tag--mobile">
-                    <span class="risk-signal__glyph" aria-hidden="true">⚠</span>
+                    <span class="risk-signal__glyph" aria-hidden="true">!</span>
                     {{ currentStage.riskTag }}
                   </p>
                   <p class="risk-signal__reason risk-signal__reason--desktop">
@@ -255,8 +258,8 @@
               >
                 <summary class="stage-context-panel__summary disclosure-summary">
                   <span class="disclosure-summary__text">
-                    <span class="stage-context-panel__glyph" aria-hidden="true">⚠</span>
-                    Context · {{ currentStage.riskTag }}
+                    <span class="stage-context-panel__glyph" aria-hidden="true">!</span>
+                    Context - {{ currentStage.riskTag }}
                   </span>
                   <span class="disclosure-chevron" aria-hidden="true"></span>
                 </summary>
@@ -264,7 +267,7 @@
                   <div class="risk-signal risk-signal--editorial">
                     <p class="risk-signal__kicker">Risk signal</p>
                     <p class="risk-signal__tag risk-signal__tag--mobile">
-                      <span class="risk-signal__glyph" aria-hidden="true">⚠</span>
+                      <span class="risk-signal__glyph" aria-hidden="true">!</span>
                       {{ currentStage.riskTag }}
                     </p>
                     <p class="risk-signal__reason risk-signal__reason--mobile">
@@ -324,7 +327,7 @@
                 </details>
 
                 <div class="actions actions--compact">
-                  <button class="primary" type="button" @click="nextStage">Continue →</button>
+                  <button class="primary" type="button" @click="nextStage">Continue -></button>
                   <button class="secondary" type="button" @click="$emit('exit')">
                     Back to choose another scam type
                   </button>
@@ -346,63 +349,42 @@
                 <div class="finale-celebration__copy">
                   <p class="finale-celebration__eyebrow">{{ finaleCelebrationEyebrow }}</p>
                   <h4 class="final-outcome-heading">{{ finalOutcomeTitle }}</h4>
-                  <p class="finale-celebration__message">{{ finalOutcomeMessage }}</p>
+                  <p v-if="finalOutcomeMessage" class="finale-celebration__message">
+                    {{ finalOutcomeMessage }}
+                  </p>
+                  <div class="finale-outcome-tags" aria-label="Outcome highlights">
+                    <span
+                      class="finale-outcome-tag"
+                      :class="
+                        isHighPressureOutcome
+                          ? 'finale-outcome-tag--warn'
+                          : 'finale-outcome-tag--calm'
+                      "
+                    >
+                      {{ isHighPressureOutcome ? 'High pressure run' : 'Low pressure run' }}
+                    </span>
+                    <span class="finale-outcome-tag finale-outcome-tag--neutral"
+                      >Scenario complete</span
+                    >
+                  </div>
                 </div>
               </section>
               <section
                 class="outcome-section outcome-section--coach"
                 v-if="showPersonalSummary"
-                aria-label="Learning recap and AI coach"
+                aria-label="Learning report and AI coach"
               >
-                <details
-                  class="finale-recap-panel"
-                  :open="recapItems.length > 0 && recapItems.length <= 2"
-                >
-                  <summary class="finale-recap-panel__summary disclosure-summary">
-                    <span class="disclosure-summary__text">
-                      Your recap
-                      <span v-if="recapItems.length" class="finale-recap-panel__count">{{
-                        recapItems.length
-                      }}</span>
-                    </span>
-                    <span class="disclosure-chevron" aria-hidden="true"></span>
-                  </summary>
-                  <ol v-if="recapItems.length" class="finale-recap-compact">
-                    <li
-                      v-for="item in recapItems"
-                      :key="item.key"
-                      class="finale-recap-compact__item"
-                    >
-                      <p class="finale-recap-compact__decision">{{ item.decision }}</p>
-                      <details class="finale-recap-compact__more">
-                        <summary class="disclosure-summary disclosure-summary--inline">
-                          <span class="disclosure-summary__text">Details</span>
-                          <span class="disclosure-chevron" aria-hidden="true"></span>
-                        </summary>
-                        <p>{{ item.why }} · {{ item.how }}</p>
-                      </details>
-                    </li>
-                  </ol>
-                  <p v-else class="coach-risk-path-clean">
-                    No high-risk taps this run — keep verifying recruiters before you share IDs or
-                    move money.
-                  </p>
-                </details>
-
-                <details class="finale-coach-panel" aria-label="Learning and AI coach">
+                <details class="finale-coach-panel" open aria-label="Learning and AI coach">
                   <summary class="finale-coach-panel__summary disclosure-summary">
                     <span class="disclosure-summary__text">
-                      <span class="ai-sparkle" aria-hidden="true">✦</span>
+                      <span class="ai-sparkle" aria-hidden="true">AI</span>
                       Learning &amp; AI coach
-                      <span
-                        v-if="coachLoading"
-                        class="ai-badge ai-badge--loading"
-                        aria-live="polite"
-                        >…</span
+                      <span v-if="coachLoading" class="ai-badge ai-badge--loading" aria-live="polite"
+                        >...</span
                       >
-                      <span v-else-if="coachSource === 'ai'" class="ai-badge ai-badge--ok"
-                        >Gemini</span
-                      >
+                      <span v-else-if="coachSource === 'ai'" class="ai-badge ai-badge--ok">
+                        Gemini
+                      </span>
                     </span>
                     <span class="disclosure-chevron" aria-hidden="true"></span>
                   </summary>
@@ -414,15 +396,9 @@
                         :class="{ 'coach-panel--stakes-high': isHighPressureOutcome }"
                         aria-label="Harm patterns"
                       >
-                        <p class="coach-panel__heading">
-                          {{
-                            isHighPressureOutcome
-                              ? 'If pressure keeps winning'
-                              : 'Why this playbook drags people in'
-                          }}
-                        </p>
+                        <p class="coach-panel__heading">Why it works</p>
                         <p v-if="isHighPressureOutcome" class="coach-stakes-meta">
-                          Signals · ABC News Jul 2025 · Scamwatch
+                          Signals | ABC News Jul 2025 | Scamwatch
                         </p>
                         <ul class="coach-stakes-bullets">
                           <li v-for="(bullet, hb) in harmFocusBullets" :key="`coach-h-${hb}`">
@@ -431,14 +407,14 @@
                         </ul>
                       </section>
 
-                      <div class="coach-panel-rule" role="presentation"></div>
-
                       <section class="coach-panel coach-panel--synthesis" aria-label="Coach">
-                        <p class="coach-panel__heading coach-panel__heading--secondary">Coach</p>
+                        <p class="coach-panel__heading coach-panel__heading--secondary">
+                          Coach note
+                        </p>
 
                         <details v-if="coachError" class="coach-livefail">
                           <summary class="coach-livefail__summary">
-                            Could not reach the live Gemini model — offline coach fills in below.
+                            Could not reach the live Gemini model - offline coach fills in below.
                           </summary>
                           <p class="coach-livefail__detail">{{ coachError }}</p>
                         </details>
@@ -452,62 +428,206 @@
                           <p v-if="coachParagraphDisplay" class="ai-coach-compact__para">
                             {{ coachParagraphDisplay }}
                           </p>
-                          <dl
-                            v-if="coachTopRiskDisplay || coachNextActionDisplay"
-                            class="ai-coach-compact__dl"
+                          <p v-if="coachTopRiskDisplay" class="ai-coach-compact__riskline">
+                            <span>Pattern:</span> {{ coachTopRiskDisplay }}
+                          </p>
+                          <div
+                            v-if="coachChecklistRows.length"
+                            class="ai-coach-checklist"
+                            aria-label="Action checklist"
                           >
-                            <template v-if="coachTopRiskDisplay">
-                              <dt>Pattern</dt>
-                              <dd>{{ coachTopRiskDisplay }}</dd>
-                            </template>
-                            <template v-if="coachNextActionDisplay">
-                              <dt>Next step</dt>
-                              <dd>{{ coachNextActionDisplay }}</dd>
-                            </template>
-                          </dl>
-                          <p v-if="coachHesitationDisplay" class="ai-coach-compact__timing">
-                            <span class="ai-coach-compact__timing-lbl">Pause pattern</span>
-                            {{ coachHesitationDisplay }}
-                          </p>
-                          <p class="ai-coach-compact__fineprint">
-                            Model text can drift — lock money decisions behind regulators, your
-                            bank, and Scamwatch.
-                          </p>
+                            <p class="ai-coach-checklist__label">Next step checklist</p>
+                            <div class="ai-coach-checklist__items">
+                              <button
+                                v-for="row in coachChecklistRows"
+                                :key="row.id"
+                                type="button"
+                                class="ai-coach-checklist__item"
+                                :class="{
+                                  'ai-coach-checklist__item--on': nextStepChecksModel[row.id],
+                                }"
+                                :aria-pressed="Boolean(nextStepChecksModel[row.id])"
+                                @click="nextStepChecksModel[row.id] = !nextStepChecksModel[row.id]"
+                              >
+                                <span class="ai-coach-checklist__box" aria-hidden="true"></span>
+                                <span v-if="row.tag" class="ai-coach-checklist__tag">{{
+                                  row.tag
+                                }}</span>
+                                <span>{{ row.label }}</span>
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </section>
                     </div>
                   </div>
                 </details>
+
+                <section class="finale-insights-report" aria-label="Scam insights report">
+                  <div class="finale-insights-report__head">
+                    <p class="finale-insights-report__kicker">Scam insights report</p>
+                    <h5 class="finale-insights-report__title">Data facts for {{ activeInsightReport.typeLabel }}</h5>
+                    <p class="finale-insights-report__summary">
+                      For {{ activeInsightReport.typeLabel }}, here are data facts that can help you
+                      make better decisions.
+                    </p>
+                  </div>
+
+                  <div class="finale-insights-type-tabs" role="tablist" aria-label="Insight modules">
+                    <button
+                      v-for="option in insightViewOptions"
+                      :key="option.key"
+                      type="button"
+                      class="finale-insights-type-tab"
+                      :class="{ 'finale-insights-type-tab--active': selectedInsightView === option.key }"
+                      :aria-selected="selectedInsightView === option.key"
+                      role="tab"
+                      @click="selectedInsightView = option.key"
+                    >
+                      {{ option.label }}
+                    </button>
+                  </div>
+
+                  <article class="finale-insights-type-card">
+                    <section v-if="selectedInsightView === 'trend'" class="finale-insights-block">
+                      <p class="finale-insights-block__title">Trend &amp; loss</p>
+                      <DualAxisTrendChart
+                        :scam-type="activeInsightReport.typeLabel"
+                        :trend-data="activeInsightReport.trendData"
+                        :time-period="insightTimePeriod"
+                      />
+                    </section>
+
+                    <section v-else-if="selectedInsightView === 'age'" class="finale-insights-block">
+                      <p class="finale-insights-block__title">Age groups</p>
+                      <div
+                        v-if="activeInsightReport.agePictogramItems.length"
+                        class="finale-age-chart--desktop"
+                      >
+                        <PersonPictogramChart
+                          title=""
+                          note=""
+                          :items="activeInsightReport.agePictogramItems"
+                          empty-message="No 18-24 age-group data available for this scam type"
+                          tone="age"
+                        />
+                      </div>
+                      <div v-if="activeAgeSpotlight" class="finale-age-spotlight finale-age-spotlight--mobile">
+                        <p class="finale-age-spotlight__label">Primary risk cluster</p>
+                        <div class="finale-age-spotlight__row">
+                          <p class="finale-age-spotlight__group">{{ activeAgeSpotlight.label }}</p>
+                          <div class="finale-age-spotlight__dots" aria-hidden="true">
+                            <span
+                              v-for="dot in 5"
+                              :key="`age-dot-${dot}`"
+                              class="finale-age-spotlight__dot"
+                              :class="{ 'finale-age-spotlight__dot--on': dot <= activeAgeDotCount }"
+                            ></span>
+                          </div>
+                          <p class="finale-age-spotlight__stat">{{ activeAgeSpotlight.statLabel }}</p>
+                        </div>
+                        <p class="finale-age-spotlight__caption">{{ activeAgeSpotlight.statCaption }}</p>
+                      </div>
+                      <div v-else class="finale-insights-empty">
+                        No 18-24 age-group data available for this scam type.
+                      </div>
+                    </section>
+
+                    <section v-else-if="selectedInsightView === 'location'" class="finale-insights-block">
+                      <p class="finale-insights-block__title">Location map</p>
+                      <div v-if="!activeYearLocationData.length" class="finale-insights-empty">
+                        No location trend data available for this scam type.
+                      </div>
+                      <div v-else class="finale-map-layout">
+                        <div class="finale-map-controls">
+                          <div class="finale-map-toolbar">
+                            <button
+                              type="button"
+                              class="finale-map-button"
+                              @click="startInsightMapPlayback"
+                            >
+                              <span aria-hidden="true">&#9654;</span>
+                              <span>Play</span>
+                            </button>
+                            <button type="button" class="finale-map-button" @click="stopInsightMapPlayback">
+                              <span aria-hidden="true">&#9208;</span>
+                              <span>Pause</span>
+                            </button>
+                            <p class="finale-map-year"><strong>Year: {{ selectedInsightYear }}</strong></p>
+                          </div>
+                          <div class="finale-map-slider-group">
+                            <input
+                              v-model.number="selectedInsightYear"
+                              class="finale-map-slider"
+                              type="range"
+                              :min="activeInsightYears[0]"
+                              :max="activeInsightYears[activeInsightYears.length - 1]"
+                              step="1"
+                              @input="stopInsightMapPlayback"
+                            />
+                            <div class="finale-map-year-labels" aria-label="Map year scale">
+                              <span
+                                v-for="year in activeInsightYears"
+                                :key="`sim-map-year-${year}`"
+                                :class="{
+                                  'finale-map-year-labels__year--active':
+                                    Number(year) === Number(selectedInsightYear),
+                                }"
+                                >{{ year }}</span
+                              >
+                            </div>
+                          </div>
+                        </div>
+                        <LeafletD3Map
+                          :map-data="activeInsightReport.locationTrendData"
+                          :selected-year="Number(selectedInsightYear)"
+                        />
+                      </div>
+                    </section>
+
+                    <section v-else class="finale-insights-block finale-insights-block--summary">
+                      <p class="finale-insights-block__title">Dataset summary</p>
+                      <p class="finale-insights-summary-period">Time period: {{ insightTimePeriod }}</p>
+                      <div class="finale-summary-dual-box">
+                        <div class="finale-summary-dual-box__half">
+                          <strong class="finale-summary-dual-box__value">{{
+                            formatNumber(activeInsightReport.typeTotalReports)
+                          }}</strong>
+                          <span class="finale-summary-dual-box__label">Total reported cases</span>
+                        </div>
+                        <div class="finale-summary-dual-box__divider" aria-hidden="true"></div>
+                        <div class="finale-summary-dual-box__half">
+                          <strong class="finale-summary-dual-box__value">{{
+                            formatMoney(activeInsightReport.typeTotalLoss)
+                          }}</strong>
+                          <span class="finale-summary-dual-box__label"
+                            >Total combined financial loss</span
+                          >
+                        </div>
+                      </div>
+                      <div class="finale-summary-grid">
+                        <div class="finale-summary-tile">
+                          <strong v-if="activeInsightReport.rankInfo">
+                            #{{ activeInsightReport.rankInfo.rank }} /
+                            {{ activeInsightReport.rankInfo.totalTypes }}
+                          </strong>
+                          <strong v-else>N/A</strong>
+                          <span>Rank by report count</span>
+                        </div>
+                      </div>
+                      <p class="finale-summary-meaning">{{ insightMeaningLine }}</p>
+                    </section>
+                  </article>
+                </section>
               </section>
 
-              <section class="finale-next" aria-label="Next actions">
-                <p class="finale-next__label">Next steps</p>
-                <div class="finale-next-chips">
-                  <button
-                    v-for="row in nextStepRows"
-                    :key="row.id"
-                    type="button"
-                    class="finale-next-chip"
-                    :class="{ 'finale-next-chip--on': nextStepChecksModel[row.id] }"
-                    :aria-pressed="Boolean(nextStepChecksModel[row.id])"
-                    @click="nextStepChecksModel[row.id] = !nextStepChecksModel[row.id]"
-                  >
-                    {{ row.label }}
-                  </button>
-                </div>
-              </section>
-
-              <div v-if="showDetectedResult && detectedLabel" class="detected">
-                <strong>Detected type:</strong> {{ detectedLabel }} — {{ detectedTone }}
-              </div>
-
-              <div class="actions">
+              <div class="actions actions--finale">
                 <a
                   class="primary"
                   href="https://www.scamwatch.gov.au/report-a-scam"
                   target="_blank"
                   rel="noopener noreferrer"
-                  >Report to Scamwatch →</a
+                  >Report to Scamwatch -></a
                 >
                 <button class="secondary" type="button" @click="$emit('restart')">
                   Try another scenario
@@ -518,12 +638,71 @@
         </article>
       </Transition>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="showFullscreenPrompt"
+        class="sim-fs-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Fullscreen choice"
+      >
+        <button
+          type="button"
+          class="sim-fs-modal__backdrop"
+          aria-label="Close fullscreen choice"
+          @click="confirmFullscreenChoice(false)"
+        ></button>
+        <div class="sim-fs-modal__panel">
+          <p class="sim-fs-modal__title">Enter fullscreen mode?</p>
+          <p class="sim-fs-modal__copy">Fullscreen helps focus during the simulation.</p>
+          <p class="sim-fs-modal__tip">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M4 9v6h4l5 4V5L8 9H4zm12.5-1.5a1 1 0 0 1 1.4 0 6.5 6.5 0 0 1 0 9.2 1 1 0 0 1-1.4-1.4 4.5 4.5 0 0 0 0-6.4 1 1 0 0 1 0-1.4zm3.2-3.2a1 1 0 0 1 1.4 0 11 11 0 0 1 0 15.6 1 1 0 0 1-1.4-1.4 9 9 0 0 0 0-12.8 1 1 0 0 1 0-1.4z"
+              />
+            </svg>
+            <span>Tip: the simulator includes sound effects.</span>
+          </p>
+          <div class="sim-fs-modal__actions">
+            <button
+              class="sim-fs-modal__btn sim-fs-modal__btn--primary"
+              type="button"
+              @click="confirmFullscreenChoice(true)"
+            >
+              Enter fullscreen
+            </button>
+            <button
+              class="sim-fs-modal__btn sim-fs-modal__btn--secondary"
+              type="button"
+              @click="confirmFullscreenChoice(false)"
+            >
+              Continue windowed
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </section>
 </template>
 
 <script setup>
 import { computed, ref, reactive, watch, onMounted, onBeforeUnmount } from 'vue'
+import DualAxisTrendChart from './DualAxisTrendChart.vue'
+import PersonPictogramChart from './PersonPictogramChart.vue'
+import LeafletD3Map from './LeafletD3Map.vue'
 import { SCAM_SIMULATION_SCENARIOS } from '../constants/scamSimulationScenarios'
+import { formatMoney, formatNumber } from '../utils/chartFormatters.js'
+import {
+  getAgeDistribution,
+  getAvailableYears,
+  getLocationTrendByScamType,
+  getScamTypeLabel,
+  getScamTypeOptions,
+  getScamTypeRank,
+  getTimePeriod,
+  getTrendByScamType,
+} from '../services/scamInsightsService'
 import {
   persistWalkthroughSession,
   appendWalkthroughEvent,
@@ -553,7 +732,7 @@ function shortenToWords(text, maxWords = 22) {
   if (!clean) return ''
   const words = clean.split(' ')
   if (words.length <= maxWords) return clean
-  return `${words.slice(0, maxWords).join(' ')}…`
+  return `${words.slice(0, maxWords).join(' ')}...`
 }
 
 const stage = ref(0)
@@ -561,6 +740,7 @@ const picked = ref('')
 const riskCount = ref(0)
 const feedbackHistory = ref([])
 const showPersonalSummary = ref(false)
+const showFullscreenPrompt = ref(false)
 const simRef = ref(null)
 const isFullscreen = ref(false)
 const isTransitioning = ref(false)
@@ -573,7 +753,7 @@ const scenario = computed(
 )
 const stageLabel = computed(() => Math.min(5, Math.max(1, stage.value)))
 
-/** Single thin progress bar: stage 1–5 advances fill; intro 0 empty; finale (>5) treated as full in template. */
+/** Single thin progress bar: stage 1-5 advances fill; intro 0 empty; finale (>5) treated as full in template. */
 const stageProgressPercent = computed(() => {
   const s = stage.value
   if (s <= 0) return 0
@@ -630,8 +810,172 @@ const localSummaryText = computed(() => localSummaryPoints.value.join(' '))
 
 const coachParagraphDisplay = computed(() => props.coachParagraph.trim())
 const coachTopRiskDisplay = computed(() => props.coachTopRisk.trim())
-const coachNextActionDisplay = computed(() => props.coachNextAction.trim())
-const coachHesitationDisplay = computed(() => props.coachHesitationInsight.trim())
+const insightTypeOptions = getScamTypeOptions()
+const insightViewOptions = [
+  { key: 'trend', label: 'Trend & loss' },
+  { key: 'age', label: 'Age groups' },
+  { key: 'location', label: 'Location map' },
+  { key: 'summary', label: 'Dataset summary' },
+]
+const insightTimePeriod = computed(() => getTimePeriod())
+const insightFallbackYear =
+  [...getAvailableYears()].sort((a, b) => a - b).at(-1) ?? new Date().getFullYear()
+const selectedInsightView = ref('trend')
+const selectedInsightYear = ref(insightFallbackYear)
+const isInsightMapPlaying = ref(false)
+let insightMapTimer = null
+
+function getRelatableShareLabel(percent) {
+  const safePercent = Number(percent || 0)
+
+  if (!Number.isFinite(safePercent) || safePercent < 1) {
+    return 'Less than 1 in 100'
+  }
+
+  if (safePercent >= 99) {
+    return 'Almost everyone'
+  }
+
+  const friendlyBenchmarks = [
+    { percent: 50, denominator: 2 },
+    { percent: 33.3, denominator: 3 },
+    { percent: 25, denominator: 4 },
+    { percent: 20, denominator: 5 },
+    { percent: 10, denominator: 10 },
+    { percent: 5, denominator: 20 },
+    { percent: 2, denominator: 50 },
+    { percent: 1, denominator: 100 },
+  ]
+
+  const benchmark =
+    friendlyBenchmarks.find((item) => safePercent >= item.percent - 3.5) ||
+    friendlyBenchmarks[friendlyBenchmarks.length - 1]
+
+  if (safePercent >= benchmark.percent + 3.5) {
+    return `More than 1 in ${benchmark.denominator}`
+  }
+
+  if (safePercent < benchmark.percent) {
+    return `Nearly 1 in ${benchmark.denominator}`
+  }
+
+  return `About 1 in ${benchmark.denominator}`
+}
+
+function buildAgePictogramItems(ageData) {
+  const totalAgeReports = ageData.reduce((sum, row) => sum + Number(row.value || 0), 0)
+  const youthAgeGroup = ageData.find((row) => row.label === '18-24')
+
+  if (!youthAgeGroup) return []
+
+  const share = totalAgeReports ? (Number(youthAgeGroup.value || 0) / totalAgeReports) * 100 : 0
+
+  return [
+    {
+      label: '18-24',
+      displayValue: `${formatNumber(youthAgeGroup.value)} reports`,
+      helper: `${getRelatableShareLabel(share)} reports involved someone aged 18 to 24`,
+      percent: share,
+      statLabel: getRelatableShareLabel(share),
+      statCaption: `${share.toFixed(1)}% of reports for this scam type came from 18 to 24 year olds`,
+      highlighted: true,
+      badge: 'Young job seekers',
+    },
+  ]
+}
+
+const activeInsightTypeKey = computed(
+  () => props.scenarioType || insightTypeOptions[0]?.value || '',
+)
+
+const activeInsightTypeOption = computed(
+  () =>
+    insightTypeOptions.find((option) => option.value === activeInsightTypeKey.value) ||
+    insightTypeOptions[0] ||
+    null,
+)
+
+const activeInsightReport = computed(() => {
+  const typeKey = activeInsightTypeOption.value?.value || activeInsightTypeKey.value
+  const typeLabel =
+    activeInsightTypeOption.value?.label || getScamTypeLabel(typeKey) || 'Selected scam type'
+  const trendData = getTrendByScamType(typeKey)
+  const ageData = getAgeDistribution(typeKey)
+  const locationTrendData = getLocationTrendByScamType(typeKey)
+  const rankInfo = getScamTypeRank(typeKey)
+  const typeTotalReports = trendData.reduce((sum, row) => sum + Number(row.report_count || 0), 0)
+  const typeTotalLoss = trendData.reduce((sum, row) => sum + Number(row.total_loss || 0), 0)
+
+  return {
+    typeKey,
+    typeLabel,
+    trendData,
+    agePictogramItems: buildAgePictogramItems(ageData),
+    locationTrendData,
+    rankInfo,
+    typeTotalReports,
+    typeTotalLoss,
+  }
+})
+
+const activeAgeSpotlight = computed(() => activeInsightReport.value.agePictogramItems[0] || null)
+
+const activeAgeDotCount = computed(() => {
+  const percent = Number(activeAgeSpotlight.value?.percent || 0)
+  const scaled = Math.round((Math.max(0, Math.min(100, percent)) / 100) * 5)
+  return Math.max(0, Math.min(5, scaled))
+})
+
+const activeInsightYears = computed(() =>
+  [
+    ...new Set(
+      activeInsightReport.value.locationTrendData
+        .map((row) => Number(row.year))
+        .filter(Number.isFinite),
+    ),
+  ].sort((a, b) => a - b),
+)
+
+const activeYearLocationData = computed(() =>
+  activeInsightReport.value.locationTrendData.filter(
+    (row) => Number(row.year) === Number(selectedInsightYear.value),
+  ),
+)
+
+function stopInsightMapPlayback() {
+  isInsightMapPlaying.value = false
+  if (insightMapTimer) {
+    clearInterval(insightMapTimer)
+    insightMapTimer = null
+  }
+}
+
+function startInsightMapPlayback() {
+  if (isInsightMapPlaying.value) return
+  if (activeInsightYears.value.length <= 1) return
+
+  isInsightMapPlaying.value = true
+  insightMapTimer = setInterval(() => {
+    const years = activeInsightYears.value
+    if (!years.length) return
+    const currentIndex = years.indexOf(Number(selectedInsightYear.value))
+    const nextIndex = currentIndex >= years.length - 1 ? 0 : currentIndex + 1
+    selectedInsightYear.value = years[nextIndex]
+  }, 1200)
+}
+
+watch(
+  activeInsightYears,
+  (years) => {
+    stopInsightMapPlayback()
+    selectedInsightYear.value = years[0] ?? insightFallbackYear
+  },
+  { immediate: true },
+)
+
+watch(selectedInsightView, (view) => {
+  if (view !== 'location') stopInsightMapPlayback()
+})
 
 const choiceFeedback = computed(() => {
   if (!picked.value) return null
@@ -640,7 +984,7 @@ const choiceFeedback = computed(() => {
 
   if (isRisk) {
     return {
-      judgment: `Higher risk · ${st.riskTag || 'pressure signal'}`,
+      judgment: `Higher risk - ${st.riskTag || 'pressure signal'}`,
       explain: shortenToWords(st.learningPoint || st.riskReason, 20),
       action: shortenToWords(st.safeAction, 22),
       actionLabel: 'Try instead:',
@@ -648,34 +992,11 @@ const choiceFeedback = computed(() => {
   }
 
   return {
-    judgment: 'Lower risk · good pause',
+    judgment: 'Lower risk - good pause',
     explain: shortenToWords(st.safeNote || st.learningPoint, 20),
     action: shortenToWords(st.safeAction || st.learningPoint, 22),
     actionLabel: 'Keep doing:',
   }
-})
-
-const recapCountLine = computed(() => {
-  const n = riskCount.value
-  if (n === 0) return 'High-risk choices this run: 0'
-  if (n === 1) return 'High-risk choices this run: 1'
-  return `High-risk choices this run: ${n}`
-})
-
-const recapItems = computed(() => {
-  return feedbackHistory.value
-    .filter((h) => h.choice === 'risk')
-    .sort((a, b) => a.stage - b.stage)
-    .slice(0, 3)
-    .map((item) => {
-      const stageMeta = scenario.value.stages[item.stage - 1] || {}
-      return {
-        key: `recap-${item.stage}`,
-        decision: `Stage ${item.stage} · ${stageMeta.title || item.riskTag}`,
-        why: shortenToWords(item.riskReason || stageMeta.learningPoint, 22),
-        how: shortenToWords(item.safeAction || stageMeta.safeAction, 22),
-      }
-    })
 })
 
 const isHighPressureOutcome = computed(() => riskCount.value >= 1)
@@ -689,68 +1010,90 @@ const finalOutcomeAlt = computed(() =>
 )
 const finalOutcomeTitle = computed(() =>
   isHighPressureOutcome.value
-    ? 'High-pressure path — coercion + fake balance surfaced.'
-    : 'Low-pressure path — script stalled early.',
+    ? 'High-pressure path - coercion + fake balance surfaced.'
+    : 'Low-pressure path - script stalled early.',
 )
 const finalOutcomeMessage = computed(() =>
   isHighPressureOutcome.value
-    ? 'You made it through a high-pressure script. Take one win from this run and one thing to slow down next time.'
-    : 'You kept the scam from escalating — that is the outcome we are training for.',
+    ? ''
+    : 'You kept the scam from escalating - that is the outcome we are training for.',
 )
 
 const finaleCelebrationEyebrow = computed(() =>
-  isHighPressureOutcome.value ? 'Tough run — you finished' : 'Well done',
+  isHighPressureOutcome.value ? 'Tough run - you finished' : 'Well done',
 )
 
 const HIGH_PRESSURE_FOCUS_BULLETS = [
-  'Fake dashboards and first “unlock” fees train you to self-fund wages, then demands stack fast.',
-  'After cash moves, ID grabs keep the damage going — urgency is tuned to mute your checks.',
+  'Fake dashboards and first unlock fees train you to self-fund wages, then demands stack fast.',
+  'After cash moves, ID grabs keep the damage going - urgency is tuned to mute your checks.',
 ]
 
 const harmFocusBullets = computed(() => {
-  if (isHighPressureOutcome.value) return HIGH_PRESSURE_FOCUS_BULLETS
+  if (isHighPressureOutcome.value) return HIGH_PRESSURE_FOCUS_BULLETS.slice(0, 1)
   const low = scenario.value.lowRiskHarmBullets
-  return Array.isArray(low) && low.length ? low.slice(0, 2) : []
+  return Array.isArray(low) && low.length ? low.slice(0, 1) : []
 })
 
-const nextStepRows = computed(() => {
-  const type = props.scenarioType || 'task_based'
+function normalizeWords(text) {
+  return String(text || '')
+    .replace(/[^a-zA-Z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
 
-  const rows = [
-    { id: 'no-pay', label: 'Freeze payouts to strangers — every “unlock” story is still a no.' },
+function countWords(text) {
+  const clean = normalizeWords(text)
+  return clean ? clean.split(' ').length : 0
+}
+
+function toChecklistLine(text, fallback) {
+  const clean = normalizeWords(text)
+  if (!clean) return fallback
+  if (countWords(clean) <= 10) return clean
+  return fallback
+}
+
+const coachChecklistRows = computed(() => {
+  const aiNext = toChecklistLine(
+    props.coachNextAction,
+    'Verify using official channels before any payment action.',
+  )
+  const topRisk = toChecklistLine(
+    props.coachTopRisk,
+    'Urgency plus fees often signals a scripted recruitment scam.',
+  )
+
+  return [
     {
-      id: 'call-official',
-      label: 'Use bank + agency numbers you look up; ignore panic callbacks from the thread.',
+      id: 'ai-step',
+      tag: 'Next',
+      label: aiNext,
     },
     {
-      id: 'save-proof',
-      label: 'Screenshot chats + dashboards; note exact times while access lasts.',
+      id: 'coach-note',
+      tag: 'Note',
+      label: topRisk,
     },
-    { id: 'report', label: 'File Scamwatch + police cyber with ABN references in one pass.' },
+    {
+      id: 'no-pay',
+      tag: 'Rule',
+      label: 'Never pay upfront onboarding or payout release fees.',
+    },
+    {
+      id: 'report',
+      tag: 'Action',
+      label: 'Save screenshots and report directly to Scamwatch.',
+    },
   ]
+})
 
-  if (type === 'phishing') {
-    rows.splice(3, 0, {
-      id: 'typed-login',
-      label: 'Open logins only from domains you type yourself after a clean-device check.',
-    })
+const insightMeaningLine = computed(() => {
+  const rankInfo = activeInsightReport.value.rankInfo
+  if (!rankInfo) return 'Report volumes shift over time, but this pattern is still active.'
+  if (rankInfo.rank <= 2) {
+    return `${activeInsightReport.value.typeLabel} is among the most reported scam types right now.`
   }
-
-  if (type === 'identity_scam') {
-    rows.splice(3, 0, {
-      id: 'bureau',
-      label: 'If documents left the chat, ping AU credit bureaus for victim flags.',
-    })
-  }
-
-  if (type === 'investment' || type === 'financial_fraud') {
-    rows.splice(1, 0, {
-      id: 'split-narrative',
-      label: 'Separate “job duties” from “balance / capital” prompts — overlap = leave.',
-    })
-  }
-
-  return rows.map((entry, idx) => ({ ...entry, id: entry.id || `next-${idx}` }))
+  return `${activeInsightReport.value.typeLabel} is still active and worth preparing for before you respond.`
 })
 
 const nextStepChecksModel = reactive({})
@@ -765,7 +1108,7 @@ watch(
 )
 
 watch(
-  nextStepRows,
+  coachChecklistRows,
   (rows) => {
     rows.forEach((row) => {
       if (!(row.id in nextStepChecksModel)) nextStepChecksModel[row.id] = false
@@ -849,26 +1192,34 @@ function playTone(kind) {
   }
 }
 
-function enterFullscreen() {
-  const el = simRef.value
-  if (!el?.requestFullscreen) return
-  savedScrollY = window.scrollY
+function openFullscreenPrompt() {
+  if (showFullscreenPrompt.value) return
+  showFullscreenPrompt.value = true
+}
+
+async function requestSimFullscreen() {
+  const target = simRef.value
+  if (!(target instanceof HTMLElement)) return
+  if (!document.fullscreenEnabled) return
+
   isTransitioning.value = true
-  const onFsChange = () => {
-    isTransitioning.value = false
-    document.removeEventListener('fullscreenchange', onFsChange)
+  try {
+    await target.requestFullscreen()
+  } catch {
+    // ignore blocked fullscreen requests and continue in windowed mode
+  } finally {
+    window.setTimeout(() => {
+      isTransitioning.value = false
+    }, 220)
   }
-  document.addEventListener('fullscreenchange', onFsChange)
-  setTimeout(
-    () =>
-      el.requestFullscreen().catch(() => {
-        isTransitioning.value = false
-      }),
-    80,
-  )
-  setTimeout(() => {
-    isTransitioning.value = false
-  }, 900)
+}
+
+async function confirmFullscreenChoice(shouldEnterFullscreen) {
+  showFullscreenPrompt.value = false
+  if (shouldEnterFullscreen) {
+    await requestSimFullscreen()
+  }
+  nextStage()
 }
 
 function exitFullscreen() {
@@ -880,6 +1231,9 @@ function exitFullscreen() {
 function handleFullscreenChange() {
   const wasFullscreen = isFullscreen.value
   isFullscreen.value = !!document.fullscreenElement
+  if (!wasFullscreen && isFullscreen.value) {
+    savedScrollY = window.scrollY
+  }
   if (wasFullscreen && !isFullscreen.value) {
     requestAnimationFrame(() => {
       const learnEl = document.getElementById('learn-section')
@@ -894,10 +1248,10 @@ function handleFullscreenChange() {
 
 onMounted(() => {
   document.addEventListener('fullscreenchange', handleFullscreenChange)
-  enterFullscreen()
 })
 
 onBeforeUnmount(() => {
+  stopInsightMapPlayback()
   document.removeEventListener('fullscreenchange', handleFullscreenChange)
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
 })
@@ -942,7 +1296,7 @@ function buildLocalSummaryPoints() {
     .filter((h) => h.choice === 'risk')
     .sort((a, b) => a.stage - b.stage)
   if (!risks.length) {
-    return ['No risky taps — keep verifying payouts and recruiters before sharing IDs or money.']
+    return ['No risky taps - keep verifying payouts and recruiters before sharing IDs or money.']
   }
 
   return risks.map((item) => `Stage ${item.stage}: ${item.riskTag}`)
@@ -964,7 +1318,11 @@ watch(
     feedbackHistory.value = []
     stageEnteredAt.value = 0
     showPersonalSummary.value = false
+    showFullscreenPrompt.value = false
     interactionTiming.value = []
+    selectedInsightView.value = 'trend'
+    selectedInsightYear.value = activeInsightYears.value[0] ?? insightFallbackYear
+    stopInsightMapPlayback()
     Object.keys(nextStepChecksModel).forEach((key) => {
       nextStepChecksModel[key] = false
     })
@@ -977,16 +1335,18 @@ watch(
   width: 100%;
   max-width: min(1280px, 100%);
   margin: 0 auto;
-  --bg-page: #fcf7f1;
-  --bg-panel: #fffbf7;
-  --bg-soft-blue: #eaf3f7;
+  background: linear-gradient(180deg, #eef4f6 0%, #f7f8f6 100%);
+  --bg-page: #eef4f6;
+  --bg-panel: #ffffff;
+  --bg-soft-blue: #eef4f6;
   --bg-warning: #fdedea;
   --navy: #1b2e5e;
-  --coral: #e8412a;
-  --teal: #0f9d8f;
-  --cream-border: #e7ded3;
+  --coral: #d0312d;
+  --teal: #7a9a82;
+  --accent-bluegray: #3b6f8f;
+  --cream-border: #e3d7c8;
   --text-main: #191827;
-  --text-muted: #6b7280;
+  --text-muted: #5f6473;
 }
 
 .sim-meta {
@@ -1027,11 +1387,11 @@ watch(
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0;
   border: 1px solid var(--cream-border);
-  border-radius: 20px;
+  border-radius: 14px;
   overflow: hidden;
   min-height: clamp(500px, 68vh, 700px);
   background: var(--bg-panel);
-  box-shadow: 0 10px 28px rgba(27, 46, 94, 0.08);
+  box-shadow: 0 1px 4px rgba(27, 46, 94, 0.05);
   align-items: stretch;
 }
 
@@ -1110,7 +1470,7 @@ watch(
 }
 
 .intro-visual {
-  background: #fcf7f1;
+  background: var(--bg-page);
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -1177,12 +1537,12 @@ watch(
 }
 
 .scene-image-fade--walkthrough {
-  background: linear-gradient(to bottom, rgba(252, 247, 241, 0) 0%, var(--bg-page) 100%);
+  background: linear-gradient(to bottom, rgba(238, 244, 246, 0) 0%, var(--bg-page) 100%);
 }
 
 .scene-image-wrap {
   position: relative;
-  background: #fcf7f1;
+  background: var(--bg-page);
   flex: 1 1 auto;
   min-height: clamp(300px, 52vh, 580px);
   display: flex;
@@ -1195,7 +1555,7 @@ watch(
 .intro-visual .scene-image-wrap {
   flex: 1 1 auto;
   min-height: clamp(380px, 64vh, 760px);
-  background: #fcf7f1;
+  background: var(--bg-page);
 }
 
 .intro-visual .scene-image-wrap .sim-image {
@@ -1224,13 +1584,13 @@ watch(
   right: 0;
   bottom: 0;
   height: 72px;
-  background: linear-gradient(to bottom, rgba(252, 247, 241, 0) 0%, #fcf7f1 100%);
+  background: linear-gradient(to bottom, rgba(238, 244, 246, 0) 0%, var(--bg-page) 100%);
   pointer-events: none;
 }
 
 .scene-dialogue-wrap {
-  background: #fcf7f1;
-  border-top: 1px solid #e3d7c8;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--cream-border);
   flex: 0 1 auto;
   min-height: 112px;
   max-height: min(280px, 38vh);
@@ -1281,6 +1641,7 @@ watch(
 
 .lead {
   margin: 0 0 8px;
+  color: var(--text-muted);
 }
 
 .voice-note-stack {
@@ -1383,7 +1744,7 @@ watch(
 
 .scene-stage-lead {
   margin: 0;
-  color: var(--text-main);
+  color: var(--text-muted);
   font-size: 0.84rem;
   line-height: 1.58;
 }
@@ -1429,11 +1790,13 @@ watch(
 }
 
 .sim-copy--final {
-  background: #fffbf7;
+  background:
+    radial-gradient(circle at 12% 4%, rgba(59, 111, 143, 0.08), rgba(238, 244, 246, 0) 42%),
+    linear-gradient(180deg, #eef4f6 0%, #f7f8f6 100%);
   display: flex;
   flex-direction: column;
   padding: 16px 18px 18px;
-  gap: 12px;
+  gap: 16px;
   overflow-x: hidden;
   overflow-y: auto;
   width: 100%;
@@ -1444,13 +1807,14 @@ watch(
 
 .finale-celebration {
   align-items: center;
-  background: linear-gradient(135deg, rgba(59, 111, 143, 0.08) 0%, rgba(252, 247, 241, 0.95) 55%);
-  border: 1px solid var(--cream-border);
-  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(59, 111, 143, 0.08) 0%, rgba(247, 248, 246, 0.95) 70%);
+  border-top: 2px solid rgba(27, 46, 94, 0.35);
+  border-bottom: 1px solid var(--cream-border);
+  border-radius: 0;
   display: flex;
   gap: 14px;
   margin: 0;
-  padding: 12px 14px;
+  padding: 14px 0 12px;
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
@@ -1493,11 +1857,49 @@ watch(
   margin: 0;
 }
 
+.finale-outcome-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.finale-outcome-tag {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  padding: 4px 8px;
+  text-transform: uppercase;
+}
+
+.finale-outcome-tag--warn {
+  background: rgba(208, 49, 45, 0.1);
+  border-color: rgba(208, 49, 45, 0.32);
+  color: #a91f1f;
+}
+
+.finale-outcome-tag--calm {
+  background: rgba(122, 154, 130, 0.12);
+  border-color: rgba(122, 154, 130, 0.34);
+  color: #4c6e55;
+}
+
+.finale-outcome-tag--neutral {
+  background: rgba(27, 46, 94, 0.08);
+  border-color: rgba(27, 46, 94, 0.22);
+  color: #1b2e5e;
+}
+
 .finale-recap-panel,
 .finale-coach-panel {
-  border: 1px solid rgba(27, 46, 94, 0.12);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.88);
+  border: 0;
+  border-top: 2px solid rgba(27, 46, 94, 0.24);
+  border-radius: 0;
+  background: transparent;
 }
 
 .finale-recap-panel__summary,
@@ -1509,7 +1911,7 @@ watch(
   font-size: 0.8rem;
   font-weight: 800;
   gap: 8px;
-  justify-content: space-between;
+  justify-content: flex-start;
   list-style: none;
   padding: 10px 12px;
   color: var(--navy);
@@ -1527,7 +1929,7 @@ watch(
   align-items: center;
   display: flex;
   gap: 10px;
-  justify-content: space-between;
+  justify-content: flex-start;
   list-style: none;
 }
 
@@ -1607,49 +2009,98 @@ details[open] > .disclosure-summary .disclosure-chevron {
 }
 
 .finale-coach-panel .summary-body {
-  padding: 0 12px 12px;
+  padding: 0 0 2px;
 }
 
-.finale-next {
+.ai-coach-checklist {
   display: grid;
   gap: 8px;
 }
 
-.finale-next__label {
+.ai-coach-checklist__label {
+  color: #1b2e5e;
   font-size: 0.72rem;
   font-weight: 800;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   margin: 0;
   text-transform: uppercase;
-  color: #4b5563;
 }
 
-.finale-next-chips {
+.ai-coach-checklist__items {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.finale-next-chip {
+.ai-coach-checklist__item {
+  align-items: center;
   background: #fff;
   border: 1px solid rgba(27, 46, 94, 0.18);
   border-radius: 999px;
   color: var(--navy);
   cursor: pointer;
+  display: inline-flex;
   font-family: inherit;
-  font-size: 0.74rem;
+  flex: 1 1 260px;
+  font-size: 0.76rem;
   font-weight: 600;
-  line-height: 1.3;
+  gap: 7px;
+  line-height: 1.34;
+  max-width: 100%;
+  min-height: 38px;
+  min-width: 0;
+  overflow-wrap: normal;
   padding: 6px 12px;
+  white-space: normal;
+  word-break: normal;
   text-align: left;
   transition:
     background 0.15s ease,
-    border-color 0.15s ease;
+    border-color 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
-.finale-next-chip--on {
+.ai-coach-checklist__item:hover,
+.ai-coach-checklist__item:focus-visible {
+  box-shadow: 0 4px 12px rgba(27, 46, 94, 0.1);
+  transform: translateY(-1px);
+}
+
+.ai-coach-checklist__box {
+  border: 1px solid rgba(27, 46, 94, 0.45);
+  border-radius: 3px;
+  height: 12px;
+  width: 12px;
+}
+
+.ai-coach-checklist__item--on {
   background: rgba(59, 111, 143, 0.12);
   border-color: rgba(59, 111, 143, 0.45);
+}
+
+.ai-coach-checklist__item--on .ai-coach-checklist__box {
+  background: #1b2e5e;
+  border-color: #1b2e5e;
+}
+
+.ai-coach-checklist__tag {
+  background: rgba(27, 46, 94, 0.09);
+  border-radius: 999px;
+  color: #1b2e5e;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1.1;
+  padding: 3px 6px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ai-coach-checklist__item > span:last-child {
+  min-width: 0;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .stage-context-panel {
@@ -1790,10 +2241,10 @@ details[open] > .disclosure-summary .disclosure-chevron {
 }
 
 .coach-panel {
-  border-radius: 12px;
-  padding: 10px 11px;
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(27, 46, 94, 0.1);
+  border-radius: 8px;
+  padding: 10px 11px;
 }
 
 .coach-panel--recap {
@@ -1811,7 +2262,8 @@ details[open] > .disclosure-summary .disclosure-chevron {
 
 .coach-panel--synthesis {
   background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(99, 102, 241, 0.22);
+  border-left: 3px solid rgba(27, 46, 94, 0.46);
+  border-color: rgba(99, 102, 241, 0.18);
 }
 
 .coach-panel__heading {
@@ -1824,7 +2276,19 @@ details[open] > .disclosure-summary .disclosure-chevron {
 }
 
 .coach-panel__heading--secondary {
-  color: var(--navy);
+  color: var(--accent-bluegray);
+}
+
+.ai-coach-compact__riskline {
+  color: #374151;
+  font-size: 0.79rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.ai-coach-compact__riskline span {
+  color: #8a1e1b;
+  font-weight: 800;
 }
 
 .coach-risk-path-list {
@@ -2237,6 +2701,126 @@ details[open] > .disclosure-summary .disclosure-chevron {
   margin-top: 14px;
 }
 
+.sim-fs-modal {
+  inset: 0;
+  position: fixed;
+  z-index: 980;
+}
+
+.sim-fs-modal__backdrop {
+  background: rgba(15, 23, 42, 0.46);
+  border: 0;
+  cursor: default;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.sim-fs-modal__panel {
+  background: #ffffff;
+  border: 1px solid var(--cream-border);
+  border-radius: 12px;
+  box-shadow: 0 14px 30px rgba(27, 46, 94, 0.2);
+  left: 50%;
+  max-width: min(92vw, 430px);
+  padding: 16px 16px 14px;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+}
+
+.sim-fs-modal__title {
+  color: var(--navy);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.sim-fs-modal__copy {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 8px 0 0;
+}
+
+.sim-fs-modal__tip {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 0;
+}
+
+.sim-fs-modal__tip svg {
+  fill: var(--accent-bluegray);
+  flex: 0 0 auto;
+  height: 16px;
+  width: 16px;
+}
+
+.sim-fs-modal__tip span {
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.sim-fs-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.sim-fs-modal__btn {
+  background: #ffffff;
+  border: 1px solid rgba(27, 46, 94, 0.22);
+  border-radius: 10px;
+  color: #1b2e5e;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.35;
+  padding: 10px 12px;
+  text-align: center;
+  transition:
+    background-color 0.16s ease,
+    color 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.sim-fs-modal__btn--primary {
+  background: #1b2e5e;
+  border: 0;
+  color: #ffffff;
+}
+
+.sim-fs-modal__btn--secondary {
+  background: #ffffff;
+  border: 1px solid rgba(27, 46, 94, 0.22);
+  color: #1b2e5e;
+}
+
+.sim-fs-modal__btn--primary:hover,
+.sim-fs-modal__btn--primary:focus-visible {
+  background: #13244a;
+}
+
+.sim-fs-modal__btn--secondary:hover,
+.sim-fs-modal__btn--secondary:focus-visible {
+  background: #f4ede0;
+}
+
+.actions--finale {
+  border-top: 1px solid rgba(27, 46, 94, 0.14);
+  justify-content: flex-start;
+  margin-top: 6px;
+  padding-top: 12px;
+}
+
 .choices--scene {
   flex-direction: column;
   flex-wrap: nowrap;
@@ -2272,7 +2856,7 @@ details[open] > .disclosure-summary .disclosure-chevron {
   background: var(--bg-soft-blue);
   border-color: var(--cream-border);
   border-left-color: var(--coral);
-  box-shadow: 0 4px 14px rgba(27, 46, 94, 0.08);
+  box-shadow: 0 1px 4px rgba(27, 46, 94, 0.08);
 }
 
 .choice-title {
@@ -2293,7 +2877,7 @@ details[open] > .disclosure-summary .disclosure-chevron {
 .choice--selected-correct {
   border-color: var(--cream-border);
   border-left-color: var(--teal);
-  background: rgba(15, 157, 143, 0.08);
+  background: rgba(122, 154, 130, 0.12);
 }
 
 .choice--selected-wrong {
@@ -2316,7 +2900,7 @@ details[open] > .disclosure-summary .disclosure-chevron {
 }
 
 .coach-note--safe {
-  background: rgba(15, 157, 143, 0.08);
+  background: rgba(122, 154, 130, 0.12);
   border-left: 3px solid var(--teal);
 }
 
@@ -2363,7 +2947,447 @@ details[open] > .disclosure-summary .disclosure-chevron {
 
 .outcome-section--coach {
   display: grid;
+  gap: 16px;
+}
+
+.ai-coach-compact__next {
+  color: #1f2937;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.ai-coach-compact__next span {
+  color: #1b2e5e;
+  font-weight: 800;
+}
+
+.finale-insights-report {
+  background: transparent;
+  border-top: 2px solid rgba(27, 46, 94, 0.2);
+  border-radius: 0;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 0 0;
+}
+
+.finale-insights-report__head {
+  display: grid;
+  gap: 4px;
+}
+
+.finale-insights-report__kicker {
+  color: #6b7280;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.finale-insights-report__title {
+  color: #1b2e5e;
+  font-size: 0.98rem;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.finale-insights-report__summary {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.finale-insights-type-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.finale-insights-type-tab {
+  background: #fff;
+  border: 1px solid rgba(27, 46, 94, 0.2);
+  border-radius: 999px;
+  color: #1b2e5e;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  min-height: 30px;
+  padding: 4px 10px;
+}
+
+.finale-insights-type-tab--active {
+  background: #1b2e5e;
+  border-color: #1b2e5e;
+  color: #fff;
+}
+
+.finale-insights-type-card {
+  border-top: 1px solid rgba(27, 46, 94, 0.12);
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding-top: 10px;
+}
+
+.finale-insights-block {
+  background: #ffffff;
+  border: 1px solid #e3d7c8;
+  border-radius: 10px;
+  box-shadow: none;
+  display: grid;
   gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  padding: 10px;
+}
+
+.finale-insights-block__title {
+  color: #1b2e5e;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.finale-insights-block :deep(.dual-trend-card),
+.finale-insights-block :deep(.leaflet-d3-map-layout) {
+  gap: 10px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.finale-insights-block :deep(.leaflet-d3-map-panel),
+.finale-insights-block :deep(.state-ranking-card) {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.finale-age-chart--desktop {
+  display: block;
+  width: 100%;
+}
+
+.finale-age-chart--desktop :deep(.picto-card) {
+  gap: 10px;
+  width: 100%;
+}
+
+.finale-age-chart--desktop :deep(.picto-card h3),
+.finale-age-chart--desktop :deep(.picto-note) {
+  display: none;
+}
+
+.finale-age-chart--desktop :deep(.picto-row) {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e3d7c8;
+  border-radius: 10px;
+  box-shadow: none;
+  column-gap: 30px;
+  grid-template-columns: auto auto auto;
+  justify-content: center;
+  justify-items: center;
+  min-height: 160px;
+  padding: 16px 18px;
+}
+
+.finale-age-chart--desktop :deep(.picto-row__meta strong) {
+  color: #1b2e5e;
+  font-size: 0.95rem;
+}
+
+.finale-age-chart--desktop :deep(.picto-row__meta span) {
+  font-size: 0.94rem;
+}
+
+.finale-age-chart--desktop :deep(.picto-row__meta small) {
+  font-size: 0.8rem;
+  max-width: 150px;
+}
+
+.finale-age-chart--desktop :deep(.picto-row__visual) {
+  align-items: center;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.finale-age-chart--desktop :deep(.picto-icons) {
+  gap: 12px;
+  justify-content: flex-start;
+}
+
+.finale-age-chart--desktop :deep(.picto-icon) {
+  height: 104px;
+  width: 52px;
+}
+
+.finale-age-chart--desktop :deep(.picto-icon__fg) {
+  width: 52px;
+}
+
+.finale-age-chart--desktop :deep(.picto-percent) {
+  min-width: 66px;
+}
+
+.finale-age-chart--desktop :deep(.picto-percent strong) {
+  font-size: 0.98rem;
+}
+
+.finale-age-spotlight {
+  background: #fff;
+  border: 1px solid #e3d7c8;
+  border-radius: 10px;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.finale-age-spotlight--mobile {
+  display: none;
+}
+
+.finale-age-spotlight__label {
+  color: #6b7280;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.finale-age-spotlight__row {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-width: 0;
+}
+
+.finale-age-spotlight__group {
+  color: #1b2e5e;
+  font-size: 0.86rem;
+  font-weight: 800;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.finale-age-spotlight__dots {
+  display: grid;
+  gap: 5px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.finale-age-spotlight__dot {
+  background: rgba(27, 46, 94, 0.14);
+  border-radius: 999px;
+  height: 8px;
+}
+
+.finale-age-spotlight__dot--on {
+  background: var(--accent-bluegray);
+}
+
+.finale-age-spotlight__stat {
+  color: #1b2e5e;
+  font-size: 0.8rem;
+  font-weight: 800;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.finale-age-spotlight__caption {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.42;
+  margin: 0;
+}
+
+.finale-insights-block :deep(.dual-trend-chart) {
+  height: 300px;
+  padding: 10px;
+}
+
+.finale-insights-block :deep(.leaflet-d3-map-shell),
+.finale-insights-block :deep(.state-ranking-card),
+.finale-insights-block :deep(.leaflet-d3-map) {
+  height: 320px;
+  max-height: 320px;
+  min-height: 320px;
+}
+
+.finale-insights-empty {
+  border: 1px dashed rgba(27, 46, 94, 0.25);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  margin: 0;
+  padding: 10px;
+}
+
+.finale-map-layout {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.finale-map-controls {
+  align-items: stretch;
+  background: rgba(27, 46, 94, 0.04);
+  border: 1px solid rgba(27, 46, 94, 0.12);
+  border-radius: 10px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px;
+}
+
+.finale-map-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+
+.finale-map-button {
+  align-items: center;
+  background: #fff;
+  border: 1px solid rgba(27, 46, 94, 0.22);
+  border-radius: 999px;
+  color: #1b2e5e;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  gap: 6px;
+  line-height: 1;
+  min-height: 30px;
+  min-width: 72px;
+  padding: 4px 11px;
+  white-space: nowrap;
+}
+
+.finale-map-year {
+  color: #1f2937;
+  font-size: 0.8rem;
+  margin: 0 0 0 auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.finale-map-slider-group {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.finale-map-slider {
+  accent-color: #1b2e5e;
+  width: 100%;
+}
+
+.finale-map-year-labels {
+  color: #6b7280;
+  display: grid;
+  font-size: 0.66rem;
+  gap: 4px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  text-align: center;
+  width: 100%;
+}
+
+.finale-map-year-labels__year--active {
+  color: #1b2e5e;
+  font-weight: 800;
+}
+
+.finale-insights-summary-period {
+  color: #6b7280;
+  font-size: 0.78rem;
+  margin: 0;
+}
+
+.finale-summary-dual-box {
+  align-items: stretch;
+  background: #fff;
+  border: 1px solid #e3d7c8;
+  border-radius: 8px;
+  display: grid;
+  gap: 0;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.finale-summary-dual-box__half {
+  display: grid;
+  gap: 3px;
+  padding: 9px 10px;
+}
+
+.finale-summary-dual-box__divider {
+  background: #e3d7c8;
+  width: 1px;
+}
+
+.finale-summary-dual-box__label {
+  color: #6b7280;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.finale-summary-dual-box__value {
+  color: #1b2e5e;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.finale-summary-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.finale-summary-tile {
+  background: #fff;
+  border: 1px solid #e3d7c8;
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  min-height: 56px;
+  padding: 9px;
+}
+
+.finale-summary-tile span {
+  color: #6b7280;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.finale-summary-tile strong {
+  color: #1b2e5e;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.finale-summary-meaning {
+  border-left: 3px solid rgba(59, 111, 143, 0.45);
+  color: #334155;
+  font-size: 0.8rem;
+  line-height: 1.48;
+  margin: 2px 0 0;
+  padding-left: 10px;
 }
 
 .sim-copy--final .final-outcome-heading {
@@ -2508,7 +3532,7 @@ details[open] > .disclosure-summary .disclosure-chevron {
 .finale-pane {
   align-items: stretch;
   align-self: stretch;
-  background: #fcf7f1;
+  background: var(--bg-page);
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -2554,7 +3578,7 @@ details[open] > .disclosure-summary .disclosure-chevron {
   width: 100%;
 }
 
-/* ── Learning summary panel ── */
+/* Learning summary panel */
 .summary-panel {
   margin-top: 10px;
   border: 1px solid #e5e2dc;
@@ -2573,7 +3597,7 @@ details[open] > .disclosure-summary .disclosure-chevron {
   margin: 0 0 10px;
 }
 
-/* ── AI Coach Summary (Gemini-inspired) ── */
+/* AI Coach Summary (Gemini-inspired) */
 .summary-panel--ai {
   border: 1px solid var(--cream-border);
   background: linear-gradient(165deg, var(--bg-panel) 0%, var(--bg-soft-blue) 100%);
@@ -2858,7 +3882,7 @@ details[open] > .disclosure-summary .disclosure-chevron {
     transform: translateX(0);
   }
 }
-/* ── Collapsible summary panels ── */
+/* Collapsible summary panels */
 .summary-toggle {
   display: flex;
   align-items: center;
@@ -2967,7 +3991,7 @@ details[open] > .disclosure-summary .disclosure-chevron {
   opacity: 0;
 }
 
-/* ── Fullscreen shell ── */
+/* Fullscreen shell */
 .fullscreen-bar {
   display: flex;
   align-items: center;
@@ -3184,7 +4208,7 @@ details[open] > .disclosure-summary .disclosure-chevron {
     min-height: auto;
     overflow-x: clip;
     width: 100%;
-    background: #fcf7f1;
+    background: var(--bg-panel);
     border-color: #e3d7c8;
     box-shadow: none;
   }
@@ -3243,7 +4267,7 @@ details[open] > .disclosure-summary .disclosure-chevron {
   }
 
   .finale-celebration,
-  .finale-next-chips,
+  .ai-coach-checklist__items,
   .choices--scene,
   .stage-context-panel,
   .wt-conversation-card {
@@ -3350,7 +4374,7 @@ details[open] > .disclosure-summary .disclosure-chevron {
     overflow-x: hidden;
     overflow-y: visible;
     padding: 14px;
-    background: #fffbf7;
+    background: var(--bg-panel);
   }
 
   .sim-card--walkthrough .sim-meta {
@@ -3380,7 +4404,7 @@ details[open] > .disclosure-summary .disclosure-chevron {
 
   .sim-card--walkthrough .wt-conversation-card--mobile {
     border: 1px solid #e3d7c8;
-    background: #f4ede0;
+    background: var(--bg-panel);
     padding: 8px;
     border-radius: 10px;
     box-shadow: none;
@@ -3419,7 +4443,7 @@ details[open] > .disclosure-summary .disclosure-chevron {
     border-radius: 10px;
     border-color: #e3d7c8;
     border-left-color: #d0312d;
-    background: #f4ede0;
+    background: var(--bg-panel);
     box-shadow: none;
   }
 
@@ -3471,7 +4495,7 @@ details[open] > .disclosure-summary .disclosure-chevron {
     gap: 4px;
     border-radius: 10px;
     border-color: #e3d7c8;
-    background: #f4ede0;
+    background: var(--bg-panel);
   }
 
   .sim-card--walkthrough .thinking-strip__line--desktop {
@@ -3517,6 +4541,62 @@ details[open] > .disclosure-summary .disclosure-chevron {
     font-size: 0.9rem;
     line-height: 1.35;
     white-space: normal;
+  }
+
+  .finale-summary-dual-box {
+    grid-template-columns: 1fr;
+  }
+
+  .finale-summary-dual-box__divider {
+    display: none;
+  }
+
+  .finale-age-spotlight__row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .finale-age-chart--desktop {
+    display: none;
+  }
+
+  .finale-age-spotlight--mobile {
+    display: grid;
+  }
+
+  .finale-age-spotlight__group,
+  .finale-age-spotlight__stat {
+    white-space: normal;
+  }
+
+  .finale-map-toolbar {
+    gap: 8px;
+  }
+
+  .finale-map-year {
+    margin-left: 0;
+  }
+
+  .finale-map-slider-group {
+    width: 100%;
+  }
+
+  .finale-insights-type-tab {
+    font-size: 0.7rem;
+    min-height: 28px;
+    padding: 4px 8px;
+  }
+
+  .finale-insights-block :deep(.dual-trend-chart) {
+    height: 260px;
+  }
+
+  .finale-insights-block :deep(.leaflet-d3-map-shell),
+  .finale-insights-block :deep(.state-ranking-card),
+  .finale-insights-block :deep(.leaflet-d3-map) {
+    height: 280px;
+    max-height: 280px;
+    min-height: 280px;
   }
 }
 
@@ -3566,5 +4646,60 @@ details[open] > .disclosure-summary .disclosure-chevron {
     font-size: 0.82rem;
     padding: 9px 10px;
   }
+
+  .finale-insights-report {
+    padding: 10px;
+  }
+
+  .finale-insights-type-tabs {
+    gap: 5px;
+  }
+
+  .finale-insights-type-tab {
+    font-size: 0.66rem;
+    min-height: 26px;
+    padding: 3px 7px;
+  }
+
+  .sim-wrapper {
+    padding-inline: 10px;
+  }
+
+  .sim-card--finale .sim-copy--final,
+  .sim-card--walkthrough .sim-copy--scene {
+    padding: 12px;
+  }
+
+  .ai-coach-checklist__item {
+    border-radius: 10px;
+    flex: 1 1 100%;
+  }
+
+  .finale-map-controls {
+    padding: 8px;
+  }
+
+  .finale-map-toolbar {
+    align-items: stretch;
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .finale-map-year {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+
+  .finale-map-button {
+    justify-content: center;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .finale-map-year-labels {
+    font-size: 0.6rem;
+  }
 }
 </style>
+

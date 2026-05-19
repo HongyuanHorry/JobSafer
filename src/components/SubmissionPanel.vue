@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { lookupAbnByBackend } from '@/services/scamAnalysisEngine'
 import { safeParseJsonStorage } from '@/utils/clientSecurity.js'
 const props = defineProps({
@@ -59,6 +59,8 @@ const pdfInputRef = ref(null)
 const errorMessage = ref('')
 const recentChecks = ref(readStoredRecentChecks())
 const isQuickControlsOpen = ref(false)
+const showSlowFirstRunHint = ref(false)
+let analyzeSlowTimer = null
 const abnLookupState = reactive({
   loading: false,
   error: '',
@@ -438,6 +440,13 @@ function handleComposeKeydown(event) {
   }
 }
 
+function clearAnalyzeSlowTimer() {
+  if (analyzeSlowTimer) {
+    clearTimeout(analyzeSlowTimer)
+    analyzeSlowTimer = null
+  }
+}
+
 watch(
   () => props.quickMode,
   (mode) => {
@@ -499,6 +508,26 @@ watch(
     }
   },
 )
+
+watch(
+  () => props.isAnalyzing,
+  (analyzing) => {
+    clearAnalyzeSlowTimer()
+    showSlowFirstRunHint.value = false
+    if (!analyzing) return
+
+    analyzeSlowTimer = window.setTimeout(() => {
+      if (props.isAnalyzing) {
+        showSlowFirstRunHint.value = true
+      }
+    }, 8000)
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => {
+  clearAnalyzeSlowTimer()
+})
 </script>
 
 <template>
@@ -787,10 +816,6 @@ watch(
                   Remove selected PDF
                 </button>
               </div>
-              <p class="small-note">
-                PDF text extraction tries the backend PyMuPDF endpoint first, then falls back to
-                local reading.
-              </p>
               <p class="small-note">Max size: 8MB. Encrypted PDFs may fail to parse.</p>
             </div>
           </div>
@@ -863,7 +888,7 @@ watch(
         >
           <span v-if="isAnalyzing" class="analyze-btn__loading">
             <span class="analyze-btn__spinner" aria-hidden="true"></span>
-            <span>Scanning...</span>
+            <span>{{ showSlowFirstRunHint ? 'First run may take longer.' : 'Scanning...' }}</span>
           </span>
           <span v-else>Analyze now</span>
         </button>
@@ -935,7 +960,12 @@ watch(
   font-size: 1rem;
   line-height: 1.6;
   margin: 0;
-  max-width: 640px;
+  max-width: none;
+  text-wrap: pretty;
+}
+
+.head-summary--desktop {
+  white-space: nowrap;
 }
 
 .head-summary--mobile,
@@ -1266,6 +1296,8 @@ watch(
   color: #6b7280;
   font-size: 0.76rem;
   margin: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .recent-checks {
@@ -1554,6 +1586,8 @@ textarea:focus {
   color: #6b7280;
   font-size: 0.88rem;
   margin: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .pdf-actions {
@@ -1591,6 +1625,8 @@ textarea:focus {
   line-height: 1.6;
   margin: 0;
   padding: 14px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .error-text {
@@ -1600,6 +1636,8 @@ textarea:focus {
   color: #d0312d;
   margin: 0;
   padding: 20px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .analyze-btn {
@@ -1885,6 +1923,30 @@ textarea:focus {
     font-size: 0.9rem;
     height: 46px;
     padding: 10px 14px;
+  }
+}
+
+@media (max-width: 375px) {
+  .mode-tabs-mobile {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .mode-tab-mobile {
+    font-size: 0.8rem;
+    min-height: 36px;
+    padding: 6px 4px;
+  }
+
+  .compose-pane,
+  .input-card,
+  .quick-controls,
+  .mode-field {
+    padding: 8px;
+  }
+
+  .abn-actions {
+    gap: 6px;
   }
 }
 </style>

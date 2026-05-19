@@ -7,16 +7,18 @@ import DualAxisTrendChart from './DualAxisTrendChart.vue'
 import {
   getAggregateSummary,
   getAgeDistribution,
+  getScamTypeLabel,
   getLocationTrendByScamType,
+  getScamTypeOptions,
   getScamTypeRank,
-  getScamTypes,
   getTimePeriod,
   getTrendByScamType,
   getAvailableYears,
 } from '../services/scamInsightsService'
 
-const scamTypes = getScamTypes()
-const selectedScamType = ref(scamTypes[0] || '')
+const scamTypeOptions = getScamTypeOptions()
+const scamTypeLabelByValue = new Map(scamTypeOptions.map((option) => [option.value, option.label]))
+const selectedScamType = ref(scamTypeOptions[0]?.value || '')
 const selectedView = ref('trend')
 
 const allYears = getAvailableYears()
@@ -40,6 +42,9 @@ const timePeriod = computed(() => getTimePeriod())
 const locationTrendData = computed(() => getLocationTrendByScamType(selectedScamType.value))
 
 const insightsSceneKey = computed(() => `${selectedView.value}-${selectedScamType.value}`)
+const selectedScamTypeLabel = computed(
+  () => scamTypeLabelByValue.get(selectedScamType.value) || getScamTypeLabel(selectedScamType.value),
+)
 
 const yearLocationData = computed(() =>
   locationTrendData.value.filter((row) => Number(row.year) === Number(selectedYear.value)),
@@ -180,8 +185,8 @@ onBeforeUnmount(() => {
       <label class="insights-select">
         <span class="insights-select__label">Scam type</span>
         <select v-model="selectedScamType" class="ms-select">
-          <option v-for="type in scamTypes" :key="type" :value="type">
-            {{ type }}
+          <option v-for="type in scamTypeOptions" :key="type.value" :value="type.value">
+            {{ type.label }}
           </option>
         </select>
       </label>
@@ -249,7 +254,7 @@ onBeforeUnmount(() => {
       >
         <h3>Reported scam cases by location over time</h3>
         <p class="insights-muted insights-muted--location-desktop">
-          Scam type: {{ selectedScamType }} · Circle size represents report count
+          Scam type: {{ selectedScamTypeLabel }} · Circle size represents report count
         </p>
         <p class="insights-muted insights-muted--location-mobile">
           Circle size shows reports. Color shows loss level.
@@ -340,7 +345,7 @@ onBeforeUnmount(() => {
         </div>
 
         <p v-if="rankInfo" class="rank-callout">
-          {{ selectedScamType }} ranks #{{ rankInfo.rank }} out of {{ rankInfo.totalTypes }}
+          {{ selectedScamTypeLabel }} ranks #{{ rankInfo.rank }} out of {{ rankInfo.totalTypes }}
           scam types by report frequency.
         </p>
       </article>
@@ -412,7 +417,9 @@ onBeforeUnmount(() => {
   font-size: 0.85rem;
   line-height: 1.5;
   margin: 0;
-  max-width: 520px;
+  max-width: none;
+  text-wrap: pretty;
+  white-space: nowrap;
 }
 
 .section-title,
@@ -1080,6 +1087,10 @@ onBeforeUnmount(() => {
   .age-hero-copy p {
     margin-bottom: 8px;
     min-height: 0;
+  }
+
+  .insights-head-summary {
+    white-space: normal;
   }
 }
 

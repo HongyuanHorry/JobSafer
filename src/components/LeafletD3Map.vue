@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { formatMoney, formatNumber } from '../utils/chartFormatters.js'
 import L from 'leaflet'
@@ -272,7 +272,7 @@ function initializeMap() {
     minZoom: 3,
     maxZoom: 7,
     scrollWheelZoom: false,
-    zoomControl: !isCompactViewport.value,
+    zoomControl: true,
   })
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -366,7 +366,7 @@ onBeforeUnmount(() => {
       </div>
 
       <p v-if="topRankedState" class="map-top-chip">
-        Top state: {{ topRankedState.location }} · {{ formatRankingValue(topRankedState) }} ·
+        Top state: {{ topRankedState.location }} - {{ formatRankingValue(topRankedState) }} -
         {{ formatRankingSecondaryValue(topRankedState) }}
       </p>
 
@@ -384,7 +384,7 @@ onBeforeUnmount(() => {
       </div>
 
       <p v-if="topRankedState" class="map-top-summary">
-        Top state: {{ topRankedState.location }} · {{ formatRankingValue(topRankedState) }} ·
+        Top state: {{ topRankedState.location }} - {{ formatRankingValue(topRankedState) }} -
         {{ formatRankingSecondaryValue(topRankedState) }}
       </p>
 
@@ -421,8 +421,8 @@ onBeforeUnmount(() => {
         </div>
 
         <p v-if="topRankedState" class="map-top-summary">
-          Top state: {{ topRankedState.location }} · {{ formatRankingValue(topRankedState) }} ·
-          {{ formatRankingSecondaryValue(topRankedState) }}
+          Top state: {{ topRankedState.location }} - {{ formatRankingValue(topRankedState) }} -
+        {{ formatRankingSecondaryValue(topRankedState) }}
         </p>
       </div>
     </section>
@@ -961,6 +961,33 @@ onBeforeUnmount(() => {
     overflow: hidden;
   }
 
+  .leaflet-d3-legend--overlay {
+    border-radius: 6px;
+    bottom: 8px;
+    gap: 3px;
+    left: 8px;
+    max-width: min(148px, 42%);
+    padding: 5px 6px;
+  }
+
+  .leaflet-d3-legend--overlay strong {
+    font-size: 0.62rem;
+  }
+
+  .leaflet-d3-legend--overlay small {
+    font-size: 0.56rem;
+    line-height: 1.2;
+  }
+
+  .leaflet-d3-legend--overlay .legend-chips {
+    gap: 4px;
+  }
+
+  .leaflet-d3-legend--overlay .legend-chip {
+    font-size: 0.56rem;
+    padding: 2px 5px;
+  }
+
   .leaflet-d3-map {
     height: 320px;
     width: 100%;
@@ -972,7 +999,7 @@ onBeforeUnmount(() => {
   }
 
   .leaflet-d3-map-layout :deep(.leaflet-control-zoom) {
-    display: none;
+    display: block;
   }
 
   .leaflet-d3-map-layout :deep(.leaflet-control-attribution) {
@@ -1016,6 +1043,35 @@ onBeforeUnmount(() => {
   }
 }
 
+@media (max-width: 480px) {
+  .leaflet-d3-legend--overlay {
+    border-radius: 5px;
+    bottom: 6px;
+    gap: 2px;
+    left: 6px;
+    max-width: min(118px, 38%);
+    padding: 4px 5px;
+  }
+
+  .leaflet-d3-legend--overlay strong {
+    font-size: 0.56rem;
+  }
+
+  .leaflet-d3-legend--overlay small {
+    font-size: 0.5rem;
+    line-height: 1.16;
+  }
+
+  .leaflet-d3-legend--overlay .legend-chips {
+    gap: 3px;
+  }
+
+  .leaflet-d3-legend--overlay .legend-chip {
+    font-size: 0.5rem;
+    padding: 1px 4px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .leaflet-d3-map-shell,
   .state-ranking-item {
@@ -1023,3 +1079,4 @@ onBeforeUnmount(() => {
   }
 }
 </style>
+

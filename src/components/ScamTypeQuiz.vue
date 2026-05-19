@@ -108,7 +108,7 @@ function handleFsChange() {
 
 onMounted(() => {
   document.addEventListener('fullscreenchange', handleFsChange)
-  enterFullscreen()
+  isFullscreen.value = !!document.fullscreenElement
 })
 
 onBeforeUnmount(() => {
