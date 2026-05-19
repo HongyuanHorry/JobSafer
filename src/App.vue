@@ -12,7 +12,6 @@ import {
 } from 'lucide-vue-next'
 import ResultPanel from './components/ResultPanel.vue'
 import SubmissionPanel from './components/SubmissionPanel.vue'
-import InsightsPanel from './components/InsightsPanel.vue'
 import ScamSimulation from './components/ScamSimulation.vue'
 import SimulatorQuickCheckModal from './components/SimulatorQuickCheckModal.vue'
 import ScamTypeQuiz from './components/ScamTypeQuiz.vue'
@@ -76,7 +75,6 @@ const EXTRACTED_PREVIEW_MAX_CHARS = 420
 const SCROLL_SECTION_IDS = [
   'home-section',
   'check-section',
-  'insights-section',
   'learn-section',
   'support-section',
 ]
@@ -110,7 +108,6 @@ const topActions = [
 ]
 
 const primarySections = [
-  { label: 'Insights', id: 'insights-section' },
   { label: 'Learn', id: 'learn-section' },
   { label: 'Support', id: 'support-section' },
 ]
@@ -261,7 +258,6 @@ const footerFriendLinks = [
 const footerProductLinks = [
   { label: 'Home', sectionId: 'home-section' },
   { label: 'Check Scam', sectionId: CHECK_SCAM_TARGET_ID },
-  { label: 'Insights', sectionId: 'insights-section' },
   { label: 'Learn', sectionId: 'learn-section' },
   { label: 'Support', sectionId: 'support-section' },
 ]
@@ -2010,11 +2006,7 @@ async function unlockSite() {
               @click="navigateToSection(section.id)"
             >
               <span class="menu-link__icon" aria-hidden="true">{{
-                section.id === 'insights-section'
-                  ? 'I'
-                  : section.id === 'learn-section'
-                    ? 'L'
-                    : 'S'
+                section.id === 'learn-section' ? 'L' : 'S'
               }}</span>
               <span class="menu-link__label">{{ section.label }}</span>
             </button>
@@ -2131,7 +2123,6 @@ async function unlockSite() {
           <p class="how-copy">
             You can start anywhere.
             <span class="how-copy__em how-copy__em--check">Check Scam</span>,
-            <span class="how-copy__em how-copy__em--insights">Insights</span>,
             <span class="how-copy__em how-copy__em--learn">Learn</span>, and
             <span class="how-copy__em how-copy__em--support">Support</span>
             work together to <span class="how-copy__nowrap">keep you safer.</span>
@@ -2221,16 +2212,6 @@ async function unlockSite() {
         class="editorial-transition editorial-transition--data-band section-fade section-fade--data-bridge"
         aria-hidden="true"
       ></div>
-
-      <section
-        id="insights-section"
-        class="panel scene-panel scene-panel--data snap-stage section-a section-fade section-fade--insights reveal-on-scroll"
-        aria-label="Insights section"
-      >
-        <div class="container-shell">
-          <InsightsPanel />
-        </div>
-      </section>
 
       <section
         id="learn-section"
@@ -4682,10 +4663,6 @@ h1 {
   color: #1b2e5e;
 }
 
-.how-copy__em--insights {
-  color: #3b6f8f;
-}
-
 .how-copy__em--learn {
   color: #1b2e5e;
 }
@@ -5252,20 +5229,6 @@ h1 {
 
 .panel {
   padding: 44px 0;
-}
-
-.section-fade--insights {
-  background: linear-gradient(180deg, #f8fbfd 0%, #fcf7f1 100%);
-}
-
-.panel.section-fade--insights {
-  padding-top: 64px;
-}
-
-@media (max-width: 767px) {
-  .panel.section-fade--insights {
-    padding-top: 20px;
-  }
 }
 
 .section-fade--learn {
@@ -6983,6 +6946,3 @@ h1 {
   }
 }
 </style>
-
-
-
