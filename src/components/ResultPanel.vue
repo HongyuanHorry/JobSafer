@@ -285,40 +285,6 @@ const showMessageChannel = computed(() => {
   return true
 })
 
-const backendExplanationLines = computed(() => {
-  const explanation = Array.isArray(props.result?.explanation) ? props.result.explanation : []
-  return explanation.map((item) => String(item).trim()).filter(Boolean)
-})
-
-const messageReasonParagraphs = computed(() => {
-  const custom = props.result?.messageAnalysisParagraphs
-  if (Array.isArray(custom) && custom.length) {
-    return custom.map((p) => String(p).trim()).filter(Boolean)
-  }
-
-  const lines = backendExplanationLines.value
-  if (lines.length > 1) return lines.slice(1, 3)
-  if (lines.length === 1) return lines
-  return [
-    'We weighed the wording against common recruiter scam scripts — income claims, urgency, and payment or identity asks before verification.',
-  ]
-})
-
-const linkReasonParagraphs = computed(() => {
-  const custom = props.result?.linkAnalysisParagraphs
-  if (Array.isArray(custom) && custom.length) {
-    return custom.map((p) => String(p).trim()).filter(Boolean)
-  }
-
-  const lines = backendExplanationLines.value
-  const bridge =
-    'Treat clicks as high-stakes until the same posting is confirmed on an official careers domain or verified contact channel.'
-  const opener =
-    'We inspected this submission as a URL first — hostname credibility, path wording, and signals that imitate trusted hiring portals.'
-  if (lines.length) return [opener, lines[0], bridge].filter(Boolean)
-  return [opener, bridge]
-})
-
 const messageExcerpt = computed(() => {
   const excerpt = String(props.result?.analysisExcerpt ?? '').trim()
   const preferBackend = excerpt && props.analysisInputType === 'text'
@@ -341,6 +307,7 @@ const highlightedMessageHtml = computed(() => {
   const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
   const escaped = escapeHtml(text)
+  if (!isSuspicious.value) return escaped
   if (!matchedPhraseRecords.value.length) return escaped
 
   const encoded = matchedPhraseRecords.value
@@ -479,11 +446,6 @@ onBeforeUnmount(() => {
   }
 })
 
-const nextActions = [
-  { label: 'Learn', href: '#learn-section' },
-  { label: 'Insights', href: '#insights-section' },
-  { label: 'Support', href: '#support-section' },
-]
 </script>
 
 <template>
@@ -545,11 +507,11 @@ const nextActions = [
                 :stroke-dasharray="100"
                 :stroke-dashoffset="arcDashOffset"
               ></path>
-              <g class="score-svg__text" transform="translate(120 98)">
+              <g class="score-svg__text" transform="translate(130 98)">
                 <text class="score-svg__value score-svg__value--compact" text-anchor="end">
                   {{ animatedScore }}
                 </text>
-                <text class="score-svg__unit" x="8" y="-2" text-anchor="start">/100</text>
+                <text class="score-svg__unit" x="20" y="-2" text-anchor="start">/100</text>
               </g>
             </svg>
           </div>
@@ -572,11 +534,6 @@ const nextActions = [
             aria-label="Link analysis"
           >
             <p class="section-label section-label--channel">Link check</p>
-            <div class="reason-copy reason-copy--channel">
-              <p v-for="(paragraph, index) in linkReasonParagraphs" :key="`link-reason-${index}`">
-                {{ paragraph }}
-              </p>
-            </div>
             <blockquote class="evidence-shell evidence-shell--link">
               <p class="evidence-url">{{ trimmedLinkUrl }}</p>
             </blockquote>
@@ -588,11 +545,6 @@ const nextActions = [
             :aria-label="messageEvidenceLabel"
           >
             <p class="section-label section-label--channel">{{ messageEvidenceLabel }}</p>
-            <div class="reason-copy reason-copy--channel">
-              <p v-for="(paragraph, index) in messageReasonParagraphs" :key="`msg-reason-${index}`">
-                {{ paragraph }}
-              </p>
-            </div>
             <blockquote class="evidence-shell evidence-shell--message">
               <p
                 v-if="highlightedMessageHtml"
@@ -632,18 +584,6 @@ const nextActions = [
             </article>
           </div>
         </section>
-
-        <nav class="next-links" aria-label="What to do next">
-          <a
-            v-for="(action, index) in nextActions"
-            :key="action.label"
-            :href="action.href"
-            class="next-links__item"
-          >
-            {{ action.label }}
-            <span v-if="index < nextActions.length - 1" aria-hidden="true">|</span>
-          </a>
-        </nav>
 
         <details
           v-if="extractedTextPreview"
@@ -690,9 +630,9 @@ const nextActions = [
                   :stroke-dashoffset="arcDashOffset"
                 ></path>
 
-                <g class="score-svg__text" transform="translate(120 98)">
+                <g class="score-svg__text" transform="translate(130 98)">
                   <text class="score-svg__value" text-anchor="end">{{ animatedScore }}</text>
-                  <text class="score-svg__unit" x="8" y="-2" text-anchor="start">/100</text>
+                  <text class="score-svg__unit" x="20" y="-2" text-anchor="start">/100</text>
                 </g>
               </svg>
             </div>
@@ -707,7 +647,11 @@ const nextActions = [
             <p class="scam-type-note">{{ scamTypeConfidenceHint }}</p>
           </section>
 
-          <section class="side-section side-section--action" aria-label="Priority action">
+          <section
+            class="side-section side-section--action"
+            :class="{ 'side-section--action-safe': !isSuspicious }"
+            aria-label="Priority action"
+          >
             <p class="action-card__title">Priority Action</p>
             <p class="action-card__text">{{ recommendedAction }}</p>
           </section>
@@ -937,6 +881,14 @@ const nextActions = [
   padding-left: 10px;
 }
 
+.evidence-quote--suspicious {
+  background: linear-gradient(transparent 22%, #fef08a 22%, #fef08a 86%, transparent 86%);
+  border-radius: 4px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 0 2px;
+}
+
 .analysis-channels {
   display: grid;
   gap: 18px;
@@ -979,6 +931,11 @@ const nextActions = [
 .evidence-shell--message {
   background: rgba(255, 255, 255, 0.78);
   border-left-color: #b45309;
+}
+
+.analysis-channel--message .evidence-quote {
+  font-size: 13px;
+  line-height: 1.76;
 }
 
 .evidence-url {
@@ -1251,6 +1208,10 @@ const nextActions = [
   padding: 16px 14px;
 }
 
+.side-section--action-safe {
+  background: #1b2e5e;
+}
+
 .action-card__title {
   color: rgba(255, 255, 255, 0.85);
   font-size: 11px;
@@ -1266,40 +1227,6 @@ const nextActions = [
   font-weight: 700;
   line-height: 1.65;
   margin: 0;
-}
-
-.next-links {
-  border-top: 1px solid #e3dfd8;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 18px 0 0;
-  padding-top: 12px;
-}
-
-.next-links__item {
-  color: #1b2e5e;
-  border-radius: 999px;
-  display: inline-flex;
-  font-size: 14px;
-  font-weight: 600;
-  padding: 4px 10px;
-  text-decoration: none;
-  transition:
-    background 0.2s ease,
-    transform 0.2s ease;
-}
-
-.next-links__item:hover,
-.next-links__item:focus-visible {
-  background: rgba(27, 46, 94, 0.08);
-  text-decoration: none;
-  transform: translateY(-2px);
-}
-
-.next-links__item span {
-  color: #6b7280;
-  margin-left: 8px;
 }
 
 .extracted-preview {
@@ -1492,7 +1419,6 @@ const nextActions = [
 
   .analysis-channels,
   .warning-grid-section,
-  .next-links,
   .extracted-preview {
     overflow-wrap: break-word;
     word-break: break-word;
@@ -1508,10 +1434,7 @@ const nextActions = [
 
   .warning-item,
   .warning-item:hover,
-  .warning-item:focus-within,
-  .next-links__item,
-  .next-links__item:hover,
-  .next-links__item:focus-visible {
+  .warning-item:focus-within {
     transform: none !important;
     box-shadow: none !important;
   }

@@ -5,14 +5,16 @@ import {
   ArrowRight,
   BookHeart,
   BookOpen,
+  ClipboardList,
   HeartHandshake,
   HeartPulse,
   LifeBuoy,
+  ListChecks,
+  Lock,
   ShieldCheck,
 } from 'lucide-vue-next'
 import ResultPanel from './components/ResultPanel.vue'
 import SubmissionPanel from './components/SubmissionPanel.vue'
-import InsightsPanel from './components/InsightsPanel.vue'
 import ScamSimulation from './components/ScamSimulation.vue'
 import SimulatorQuickCheckModal from './components/SimulatorQuickCheckModal.vue'
 import ScamTypeQuiz from './components/ScamTypeQuiz.vue'
@@ -29,8 +31,6 @@ import { scamTypeMeta } from './constants/scamSimulationData'
 
 const isAnalyzing = ref(false)
 const result = ref(null)
-const scannerStatusIndex = ref(0)
-const scannerPulseTick = ref(0)
 
 const resultPanelTransitionKey = computed(() => {
   if (result.value?.riskScore != null)
@@ -63,6 +63,12 @@ const abnResults = ref([])
 const abnLoading = ref(false)
 const abnError = ref('')
 const confirmedAbn = ref(null)
+const SITE_PASSWORD = (import.meta.env.VITE_SITE_PASSWORD || '').trim()
+const SITE_PASSWORD_SESSION_KEY = 'stepsafe-site-password-auth'
+const requiresSitePassword = computed(() => Boolean(SITE_PASSWORD))
+const isSiteAuthorized = ref(!SITE_PASSWORD)
+const sitePasswordInput = ref('')
+const sitePasswordError = ref('')
 const NAV_SCROLL_GAP = 18
 const NAV_SCROLL_LIFT = 0
 const LEARN_SCROLL_SETTLE_MS = 120
@@ -72,7 +78,6 @@ const EXTRACTED_PREVIEW_MAX_CHARS = 420
 const SCROLL_SECTION_IDS = [
   'home-section',
   'check-section',
-  'insights-section',
   'learn-section',
   'support-section',
 ]
@@ -88,7 +93,6 @@ let particleReduceMotionHandler = null
 let particleResizeHandler = null
 let stageMotionFrame = null
 let hasPageShellInitialized = false
-let scannerStatusTimer = null
 
 const heroParticleState = {
   canvas: null,
@@ -103,25 +107,25 @@ const heroParticleState = {
 const topActions = [
   { label: 'Suspicious message', mode: 'text', action: 'open-check' },
   { label: 'Upload job PDF', mode: 'pdf', action: 'open-check' },
-  { label: 'Verify recruiter', mode: 'link', action: 'open-check' },
+  { label: 'Verify recruiter', mode: 'abn', action: 'open-check' },
 ]
 
 const primarySections = [
-  { label: 'Insights', id: 'insights-section' },
   { label: 'Learn', id: 'learn-section' },
   { label: 'Support', id: 'support-section' },
 ]
 
 const learnScenarioOptions = [
-  { key: 'task_based', label: 'Task-based job scam', icon: '📋' },
-  { key: 'phishing', label: 'Phishing recruiter scam', icon: '🎣' },
-  { key: 'financial_fraud', label: 'Fake payroll / upfront fee scam', icon: '💸' },
-  { key: 'identity_scam', label: 'Identity document harvesting scam', icon: '🪪' },
-  { key: 'investment', label: 'Job-to-investment hybrid scam', icon: '📈' },
+  { key: 'task_based', label: 'Task-based job scam', icon: '01' },
+  { key: 'phishing', label: 'Phishing recruiter scam', icon: '02' },
+  { key: 'financial_fraud', label: 'Fake payroll / upfront fee scam', icon: '03' },
+  { key: 'identity_scam', label: 'Identity document harvesting scam', icon: '04' },
+  { key: 'investment', label: 'Job-to-investment hybrid scam', icon: '05' },
 ]
 
 const quickTips = [
   {
+    tag: 'Warning signs',
     title: 'Task scam warning signs',
     summary: 'Fast red flags for step-by-step simple task scams and fake commission loops.',
     href: 'https://www.scamwatch.gov.au/types-of-scams/jobs-and-employment-scams',
@@ -131,6 +135,7 @@ const quickTips = [
     fallback: '/icons/StepSafeIcon.png',
   },
   {
+    tag: 'Beginner guide',
     title: 'How to spot fake remote jobs',
     summary: 'FTC guidance for fake checks, upfront fee traps, and high-pay low-effort bait.',
     href: 'https://consumer.ftc.gov/articles/job-scams',
@@ -140,6 +145,7 @@ const quickTips = [
     fallback: '/icons/StepSafeIcon.png',
   },
   {
+    tag: 'Quick read',
     title: 'Unicorn job scams in Australia',
     summary: 'AFP coverage of job scams targeting vulnerable Australians who are looking for work.',
     href: 'https://www.afp.gov.au/news-centre/media-release/unicorn-job-scams-criminals-target-vulnerable-aussies-looking-work',
@@ -152,6 +158,7 @@ const quickTips = [
 
 const learningCards = [
   {
+    tag: 'News report',
     title: "Employment scams are on the rise. Here's what to look out for",
     summary: 'Coverage of warning signs and recent scam growth trends in Australia.',
     href: 'https://www.sbs.com.au/news/article/employment-scams-are-on-the-rise-heres-what-to-look-out-for/2xgyuapu0',
@@ -161,6 +168,7 @@ const learningCards = [
     fallback: '/icons/StepSafeIcon.png',
   },
   {
+    tag: 'Explainer',
     title: "'An elaborate ruse': The scam that's surging in Australia",
     summary: 'Explainer on task scam mechanics and how to protect yourself from losses.',
     href: 'https://www.sbs.com.au/news/article/an-elaborate-ruse-the-scam-thats-surging-in-australia-and-how-to-protect-yourself/fxvbsllo7',
@@ -170,6 +178,7 @@ const learningCards = [
     fallback: '/icons/StepSafeIcon.png',
   },
   {
+    tag: 'Case study',
     title: 'Sam thought he had a marketing job - it was actually a task-based scam',
     summary: 'Case study with concrete red flags from a real task-based scam timeline.',
     href: 'https://www.abc.net.au/news/2025-07-26/employment-scams-work-marketing-messages/105089062',
@@ -214,43 +223,27 @@ const statsEvidenceNote =
 
 const howItWorksSteps = [
   {
-    number: '1',
-    title: 'Check Scam',
-    description:
-      'Upload a message, PDF, or link. Get a quick risk alert with key red flags highlighted.',
-    hint: 'Open scanner console with Text, Link, PDF, or ABN evidence.',
+    number: 1,
+    title: 'Check',
+    description: 'Paste a message or job ad. Get an instant risk verdict.',
+    sectionId: CHECK_SCAM_TARGET_ID,
+    icon: ClipboardList,
   },
   {
-    number: '2',
-    title: 'Insights',
-    description:
-      'See scam loss patterns by type, age, and region through clear data visualization.',
-    hint: 'Explore animated trend, age, map, and summary views.',
-  },
-  {
-    number: '3',
+    number: 2,
     title: 'Learn',
-    description:
-      'Try realistic scam scenarios to spot your weak points and practice safer decisions.',
-    hint: 'Run mission-based scenarios with Alex and reinforce safer choices.',
+    description: "See what's suspicious and get clear guidance.",
+    sectionId: 'learn-section',
+    icon: ListChecks,
   },
   {
-    number: '4',
-    title: 'Support',
-    description: 'Support resources are coming soon to help you take action fast.',
-    hint: 'Save evidence and prepare your report handoff pathway.',
+    number: 3,
+    title: 'Stay safe',
+    description: 'Follow personalised steps to protect your money and report with confidence.',
+    sectionId: 'support-section',
+    icon: ShieldCheck,
   },
 ]
-
-const scannerStatusLines = [
-  'Checking urgency language',
-  'Detecting payment pressure',
-  'Looking for identity red flags',
-]
-
-const scannerStatusCurrent = computed(
-  () => scannerStatusLines[scannerStatusIndex.value % scannerStatusLines.length],
-)
 
 const footerFriendLinks = [
   {
@@ -278,7 +271,6 @@ const footerFriendLinks = [
 const footerProductLinks = [
   { label: 'Home', sectionId: 'home-section' },
   { label: 'Check Scam', sectionId: CHECK_SCAM_TARGET_ID },
-  { label: 'Insights', sectionId: 'insights-section' },
   { label: 'Learn', sectionId: 'learn-section' },
   { label: 'Support', sectionId: 'support-section' },
 ]
@@ -404,7 +396,7 @@ const supportGuides = [
         explanation:
           'Scammers practice pressure and deception every day, so being targeted does not make this your fault.',
         action:
-          'You can replace “I should have known” with one true sentence about what the scammer did, then save evidence without judging yourself.',
+          'You can replace "I should have known" with one true sentence about what the scammer did, then save evidence without judging yourself.',
       },
     ],
     links: [
@@ -430,7 +422,7 @@ const supportGuides = [
       {
         id: 'job_offer',
         title: 'Fake job offer',
-        storyTitle: 'Anonymous story: “I thought it was a real recruiter.”',
+        storyTitle: 'Anonymous story: "I thought it was a real recruiter."',
         storyBody:
           'A 22-year-old shared a resume, felt excited, then noticed pressure to move off-platform fast. They stopped replying, saved screenshots, spoke to a friend, and reported it the same day.',
         riskLabel: 'Not Alone',
@@ -449,7 +441,7 @@ const supportGuides = [
       {
         id: 'task_scam',
         title: 'Task scam',
-        storyTitle: 'Anonymous story: “The first payout made it feel real.”',
+        storyTitle: 'Anonymous story: "The first payout made it feel real."',
         storyBody:
           'A 19-year-old finished simple tasks, received a small return, then got pushed to deposit more money. They told their bank quickly, blocked the contact, and asked family for help.',
         riskLabel: 'Still Recovering',
@@ -468,7 +460,7 @@ const supportGuides = [
       {
         id: 'payment_request',
         title: 'Payment request',
-        storyTitle: 'Anonymous story: “They said the fee was refundable.”',
+        storyTitle: 'Anonymous story: "They said the fee was refundable."',
         storyBody:
           'A young graduate paid an onboarding fee because the message sounded urgent and professional. After the shock settled, they saved receipts, reported the scam, and used support services to steady themselves.',
         riskLabel: 'Recovery Works',
@@ -521,7 +513,7 @@ const activeEmotionalVariant = computed(() => {
   const selectedId = supportGuideSelections.emotional || emotionalGuide.variants[0].id
   return emotionalGuide.variants.find((variant) => variant.id === selectedId) || emotionalGuide.variants[0]
 })
-const supportChatThreadRef = ref(null)
+const emotionalSupportInput = ref('')
 const emotionalSupportMessages = ref([])
 const emotionalSupportPrompts = computed(() => {
   const variantId = supportGuideSelections.emotional
@@ -554,6 +546,7 @@ const pendingQuickCheck = ref(null)
 const quickCheckModalOpen = ref(false)
 const quickCheckTargetKey = ref('')
 const learnCompletion = ref({})
+const learnFullscreenPromptOpen = ref(false)
 const learnSectionRef = ref(null)
 const learnQuizResult = ref(null)
 const simulatorPersonalSummary = ref({
@@ -586,14 +579,20 @@ const learnMeta = computed(
   () => scamTypeMeta[learnScamType.value] || { label: 'Unknown', tone: '' },
 )
 
+const learnCompletedScenarioCount = computed(() =>
+  learnScenarioOptions.reduce(
+    (count, option) => (learnCompletion.value?.[option.key]?.completed ? count + 1 : count),
+    0,
+  ),
+)
+
 function handleQuizComplete(payload) {
   if (!payload?.type) return
   learnScamType.value = payload.type
   learnQuizResult.value = payload
   learnStep.value = 'quiz_result'
   persistLearnState({ step: 'quiz_result', scamType: payload.type, quizResult: payload })
-  // Scroll to the same position as clicking "Learn" in the nav bar
-  setTimeout(() => scrollToSection('learn-section'), 450)
+  scrollToLearnNavAnchorAfterRender()
 }
 
 function persistLearnState(update) {
@@ -645,6 +644,44 @@ function scrollToLearn(extraGap = 0) {
   window.scrollTo({ top, behavior: 'smooth' })
 }
 
+function openLearnFullscreenPromptForQuiz() {
+  if (learnFullscreenPromptOpen.value) return
+  learnFullscreenPromptOpen.value = true
+}
+
+async function requestLearnFullscreen() {
+  const target = learnSectionRef.value
+  if (!(target instanceof HTMLElement)) return
+  if (!document.fullscreenEnabled) return
+  try {
+    await target.requestFullscreen()
+  } catch {
+    // ignore blocked fullscreen requests and continue in windowed mode
+  }
+}
+
+async function confirmLearnFullscreenChoice(shouldEnterFullscreen) {
+  learnFullscreenPromptOpen.value = false
+  if (shouldEnterFullscreen) {
+    await requestLearnFullscreen()
+  }
+  startLearnQuiz()
+}
+
+function startWalkthroughFromLearnFullscreenPrompt() {
+  learnFullscreenPromptOpen.value = false
+  startWalkthroughDirectly()
+}
+
+function scrollToLearnNavAnchorAfterRender() {
+  nextTick(() => {
+    scrollToSection('learn-section', 'auto')
+    window.setTimeout(() => {
+      scrollToSection('learn-section', 'auto')
+    }, LEARN_SCROLL_SETTLE_MS)
+  })
+}
+
 function startLearnQuiz() {
   learnStep.value = 'quiz'
   persistLearnState({ step: 'quiz' })
@@ -665,14 +702,14 @@ function startWalkthroughDirectly() {
   learnStep.value = 'walkthrough'
   resetSimulatorPersonalSummary()
   persistLearnState({ step: 'walkthrough', quizResult: null })
-  scrollToLearnAfterRender(LEARN_BUTTON_EXTRA_GAP)
+  scrollToLearnNavAnchorAfterRender()
 }
 
 function openWalkthroughFromQuiz() {
   learnStep.value = 'walkthrough'
   resetSimulatorPersonalSummary()
   persistLearnState({ step: 'walkthrough' })
-  scrollToLearnAfterRender(LEARN_BUTTON_EXTRA_GAP)
+  scrollToLearnNavAnchorAfterRender()
 }
 
 function backToWorkflowChoice() {
@@ -698,7 +735,7 @@ const resultPanelMessagePlain = computed(() => {
 
 let revealObserver = null
 
-function scrollToSection(sectionId) {
+function scrollToSection(sectionId, behavior = 'smooth') {
   const remap = {
     'learn-section': 'learn-core-anchor',
     'check-section': 'check-scam-panel',
@@ -715,7 +752,11 @@ function scrollToSection(sectionId) {
   const top =
     getStaticOffsetTop(node) - headerHeight - stickyTopInset - NAV_SCROLL_GAP - NAV_SCROLL_LIFT
 
-  window.scrollTo({ top, behavior: 'smooth' })
+  if (behavior === 'smooth') {
+    window.scrollTo({ top, behavior: 'smooth' })
+    return
+  }
+  window.scrollTo(0, top)
 }
 
 function setLearnScenario(typeKey) {
@@ -751,6 +792,7 @@ function onQuickCheckModalClose() {
   if (quickCheckTargetKey.value) {
     setLearnScenario(quickCheckTargetKey.value)
     quickCheckTargetKey.value = ''
+    startWalkthroughDirectly()
   }
 }
 
@@ -763,12 +805,12 @@ function buildOfflineHesitationInsight(timings = []) {
   const a = slow[0]
   const b = slow[1]
   if (b && b !== a) {
-    return `Longest dwells on stages ${a} & ${b} — rehearse slowing wherever that scripted pacing repeats.`
+    return `Longest dwells on stages ${a} and ${b} - rehearse slowing wherever that scripted pacing repeats.`
       .slice(0, 200)
       .trim()
   }
 
-  return `Longest dwell on stage ${a} — note what stalled you before the rush returned.`
+  return `Longest dwell on stage ${a} - note what stalled you before the rush returned.`
     .slice(0, 200)
     .trim()
 }
@@ -780,8 +822,8 @@ function buildOfflineCoachInsights({ history = [], highPressure = false }) {
   const topTag = tags[0] || 'unverified recruiter pressure'
 
   const paragraph = highPressure
-    ? `Compliance kept narrowing before proof arrived — lean on slower verification next time scripts heat up.`
-    : `You stayed in the cautious lane repeatedly — that inertia is exactly what scripted hustles expect you to ditch.`
+    ? `Compliance kept narrowing before proof arrived - lean on slower verification next time scripts heat up.`
+    : `Too easy cash onboarding still builds a dossier about you even when you dodge fees.`
 
   const topRisk = firstRisk?.riskReason
     ? `${firstRisk.riskReason}`.slice(0, 220).replace(/\.$/, '')
@@ -804,6 +846,29 @@ function buildOfflineCoachInsights({ history = [], highPressure = false }) {
     topRisk,
     nextAction,
     tone: highPressure ? 'steady-guardrails' : 'confident-grounding',
+  }
+}
+
+function clampWords(text, maxWords) {
+  const clean = String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!clean) return ''
+  const words = clean.split(' ')
+  if (words.length <= maxWords) return clean
+  return words.slice(0, maxWords).join(' ')
+}
+
+function alignCoachToOfflineLimits(aiPack, offlinePack) {
+  const offlineSummaryWords = Math.max(10, clampWords(offlinePack.paragraph, 999).split(' ').length)
+  const offlineTopRiskWords = Math.max(8, clampWords(offlinePack.topRisk, 999).split(' ').length)
+  const offlineNextWords = Math.max(8, clampWords(offlinePack.nextAction, 999).split(' ').length)
+
+  return {
+    paragraph: clampWords(aiPack.paragraph, offlineSummaryWords),
+    topRisk: clampWords(aiPack.topRisk, offlineTopRiskWords),
+    nextAction: clampWords(aiPack.nextAction, offlineNextWords),
+    tone: String(aiPack.tone || '').trim().slice(0, 36),
   }
 }
 
@@ -865,10 +930,11 @@ async function markScenarioCompleted(payload) {
   let summarySource = 'idle'
 
   /** @type {{ paragraph: string, topRisk: string, nextAction: string, tone: string }} */
-  let aiCoachPack = buildOfflineCoachInsights({
+  const offlineCoachPack = buildOfflineCoachInsights({
     history: sanitizedHistory,
     highPressure: Boolean(payload?.highPressure),
   })
+  let aiCoachPack = { ...offlineCoachPack }
 
   /** @type {string} */
   let hesitationInsightOut = buildOfflineHesitationInsight(interactionTimingSanitized)
@@ -896,12 +962,13 @@ async function markScenarioCompleted(payload) {
       })
 
       if (aiResult.ok && aiResult.data?.summary) {
-        aiCoachPack = {
+        const rawAiPack = {
           paragraph: String(aiResult.data.summary || '').trim(),
           topRisk: String(aiResult.data.topRisk || '').trim(),
           nextAction: String(aiResult.data.nextAction || '').trim(),
           tone: String(aiResult.data.tone || '').trim(),
         }
+        aiCoachPack = alignCoachToOfflineLimits(rawAiPack, offlineCoachPack)
         const fromModel = String(aiResult.data.hesitationInsight ?? '').trim()
         hesitationInsightOut =
           fromModel || buildOfflineHesitationInsight(interactionTimingSanitized)
@@ -918,10 +985,7 @@ async function markScenarioCompleted(payload) {
             ? aiResult.detail.trim()
             : ''
         aiSummaryError = formatCoachApiError(reason, detail)
-        aiCoachPack = buildOfflineCoachInsights({
-          history: sanitizedHistory,
-          highPressure: Boolean(payload?.highPressure),
-        })
+        aiCoachPack = { ...offlineCoachPack }
         hesitationInsightOut = buildOfflineHesitationInsight(interactionTimingSanitized)
         aiSummaryText = aiCoachPack.paragraph
         summarySource = 'fallback'
@@ -930,10 +994,7 @@ async function markScenarioCompleted(payload) {
       const msg =
         err instanceof Error && err.message ? err.message.trim() : String(err || '').trim()
       aiSummaryError = formatCoachApiError('exception', msg)
-      aiCoachPack = buildOfflineCoachInsights({
-        history: sanitizedHistory,
-        highPressure: Boolean(payload?.highPressure),
-      })
+      aiCoachPack = { ...offlineCoachPack }
       hesitationInsightOut = buildOfflineHesitationInsight(interactionTimingSanitized)
       aiSummaryText = aiCoachPack.paragraph
       summarySource = 'fallback'
@@ -960,7 +1021,7 @@ async function markScenarioCompleted(payload) {
               .filter((item) => item.choice === 'risk')
               .map(
                 (item) =>
-                  `Stage ${item.stage}: ${item.riskTag || 'pressure signal'} → ${item.safeAction || 'Pause and verify independently.'}`,
+                  `Stage ${item.stage}: ${item.riskTag || 'pressure signal'} -> ${item.safeAction || 'Pause and verify independently.'}`,
               ),
           ),
         ].slice(0, 3)
@@ -1035,10 +1096,12 @@ function navigateToSection(sectionId) {
   if (pageFadeTimer) {
     clearTimeout(pageFadeTimer)
   }
+  window.setTimeout(() => {
+    scrollToSection(sectionId, 'auto')
+  }, 160)
   pageFadeTimer = window.setTimeout(() => {
     isPageFading.value = false
-  }, 200)
-  scrollToSection(sectionId)
+  }, 440)
 }
 
 function handleFooterProductNavigation(item) {
@@ -1057,18 +1120,15 @@ function goToCheckScam() {
 }
 
 function navigateToHowStep(stepNumber) {
-  const sectionMap = {
-    1: null,
-    2: 'insights-section',
-    3: 'learn-section',
-    4: 'support-section',
-  }
-  if (stepNumber === '1') {
+  const selectedStep = howItWorksSteps.find((step) => Number(step.number) === Number(stepNumber))
+  if (!selectedStep?.sectionId) return
+
+  if (selectedStep.sectionId === CHECK_SCAM_TARGET_ID) {
     goToCheckScam()
-  } else {
-    const id = sectionMap[stepNumber]
-    if (id) navigateToSection(id)
+    return
   }
+
+  navigateToSection(selectedStep.sectionId)
 }
 
 function externalAriaLabel(label) {
@@ -1085,6 +1145,10 @@ function setActiveSupportGuide(guideId) {
 
 function setSupportGuideVariant(guideId, variantId) {
   supportGuideSelections[guideId] = variantId
+}
+
+function stageEmotionalSupportPrompt(prompt) {
+  emotionalSupportInput.value = String(prompt || '')
 }
 
 function nextEmotionalSupportMessage(role, text) {
@@ -1201,16 +1265,7 @@ function getEmotionalSupportStarter(variantId) {
 
 function resetEmotionalSupportChat(variantId = supportGuideSelections.emotional) {
   emotionalSupportMessages.value = [nextEmotionalSupportMessage('assistant', getEmotionalSupportStarter(variantId))]
-}
-
-async function scrollEmotionalSupportThreadToLatest() {
-  await nextTick()
-  if (!(supportChatThreadRef.value instanceof HTMLElement)) return
-
-  supportChatThreadRef.value.scrollTo({
-    top: supportChatThreadRef.value.scrollHeight,
-    behavior: 'smooth',
-  })
+  emotionalSupportInput.value = ''
 }
 
 function buildEmotionalSupportReply(message) {
@@ -1271,15 +1326,15 @@ function buildEmotionalSupportReply(message) {
   return `Thank you for telling me that. Since you selected ${emotion.title}, I will keep my response grounded in that feeling.\n\nWhat I notice: something about this still feels heavy and unsettled for you.\nWhat is true: your reaction makes sense, and you do not have to earn care by explaining it perfectly.\nNext step: pause for one breath, write down the facts without judgment, and pick one supportive action only.\n\nIf you want, send me the hardest thought in your head right now, and I will help you work through that one thought first.`
 }
 
-async function sendEmotionalSupportMessage(prefill = '') {
-  const content = String(prefill || '').trim()
+function sendEmotionalSupportMessage(prefill = '') {
+  const content = String(prefill || emotionalSupportInput.value || '').trim()
   if (!content) return
 
   emotionalSupportMessages.value.push(nextEmotionalSupportMessage('user', content))
   emotionalSupportMessages.value.push(
     nextEmotionalSupportMessage('assistant', buildEmotionalSupportReply(content)),
   )
-  await scrollEmotionalSupportThreadToLatest()
+  emotionalSupportInput.value = ''
 }
 
 watch(
@@ -1383,21 +1438,6 @@ function scheduleSnapStageMotion() {
   })
 }
 
-function startScannerStatusLoop() {
-  stopScannerStatusLoop()
-  scannerStatusTimer = window.setInterval(() => {
-    scannerStatusIndex.value = (scannerStatusIndex.value + 1) % scannerStatusLines.length
-    scannerPulseTick.value += 1
-  }, 1900)
-}
-
-function stopScannerStatusLoop() {
-  if (scannerStatusTimer) {
-    clearInterval(scannerStatusTimer)
-    scannerStatusTimer = null
-  }
-}
-
 function animateValue({ from, to, duration, onTick, onDone }) {
   const start = performance.now()
   const frame = (now) => {
@@ -1480,20 +1520,6 @@ function toggleMenu() {
 
 function closeMenu() {
   isMenuOpen.value = false
-}
-
-function handleDocumentPointerDown(event) {
-  if (!isMenuOpen.value) return
-
-  const target = event.target
-  if (!(target instanceof Node)) return
-
-  const menu = document.getElementById('mobile-site-menu')
-  const toggle = menuToggleButton.value
-
-  if (menu?.contains(target) || toggle?.contains(target)) return
-
-  closeMenu()
 }
 
 function handleGlobalKeydown(event) {
@@ -1639,9 +1665,23 @@ function initHeroParticles() {
 }
 
 onMounted(async () => {
-  await nextTick()
-  initializePageShell()
+  restoreSiteAuthorization()
+
+  if (isSiteAuthorized.value) {
+    await nextTick()
+    initializePageShell()
+  }
 })
+
+watch(
+  isMenuOpen,
+  (open) => {
+    if (typeof document === 'undefined') return
+    document.documentElement.classList.toggle('menu-open', open)
+    document.body.classList.toggle('menu-open', open)
+  },
+  { immediate: true },
+)
 
 watch(showResult, async (visible) => {
   if (!visible) {
@@ -1677,6 +1717,10 @@ watch(showResult, async (visible) => {
 })
 
 onBeforeUnmount(() => {
+  if (typeof document !== 'undefined') {
+    document.documentElement.classList.remove('menu-open')
+    document.body.classList.remove('menu-open')
+  }
   teardownPageShell()
 })
 
@@ -1762,8 +1806,17 @@ function confirmAbn(record) {
   confirmedAbn.value = record
 }
 
+function restoreSiteAuthorization() {
+  if (!requiresSitePassword.value || typeof window === 'undefined') {
+    isSiteAuthorized.value = true
+    return
+  }
+
+  isSiteAuthorized.value = window.sessionStorage.getItem(SITE_PASSWORD_SESSION_KEY) === 'granted'
+}
+
 function initializePageShell() {
-  if (hasPageShellInitialized) return
+  if (hasPageShellInitialized || !isSiteAuthorized.value) return
 
   hasPageShellInitialized = true
   particleReduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -1776,12 +1829,10 @@ function initializePageShell() {
   initHeroParticles()
   initRevealObserver()
   initStatsObserver()
-  startScannerStatusLoop()
   updateSnapStageMotion()
   loadLearnState()
   window.addEventListener('keydown', handleGlobalKeydown)
   window.addEventListener('scroll', handleWindowScroll, { passive: true })
-  document.addEventListener('pointerdown', handleDocumentPointerDown, true)
   handleWindowScroll()
 }
 
@@ -1792,7 +1843,6 @@ function teardownPageShell() {
 
   window.removeEventListener('keydown', handleGlobalKeydown)
   window.removeEventListener('scroll', handleWindowScroll)
-  document.removeEventListener('pointerdown', handleDocumentPointerDown, true)
 
   if (statsObserver) {
     statsObserver.disconnect()
@@ -1807,7 +1857,6 @@ function teardownPageShell() {
   }
 
   stopHeroParticles()
-  stopScannerStatusLoop()
 
   if (stageMotionFrame) {
     cancelAnimationFrame(stageMotionFrame)
@@ -1824,10 +1873,67 @@ function teardownPageShell() {
 
   hasPageShellInitialized = false
 }
+
+async function unlockSite() {
+  if (!requiresSitePassword.value) {
+    isSiteAuthorized.value = true
+    return
+  }
+
+  if (sitePasswordInput.value !== SITE_PASSWORD) {
+    sitePasswordError.value = 'Incorrect password. Please try again.'
+    return
+  }
+
+  sitePasswordError.value = ''
+  isSiteAuthorized.value = true
+  window.sessionStorage.setItem(SITE_PASSWORD_SESSION_KEY, 'granted')
+  await nextTick()
+  initializePageShell()
+}
 </script>
 
 <template>
-  <main id="home" class="page-shell">
+  <section
+    v-if="requiresSitePassword && !isSiteAuthorized"
+    class="site-password-gate"
+    aria-label="Protected site access"
+  >
+    <div class="site-password-card">
+      <span class="site-password-card__eyebrow">Private preview</span>
+      <h1>Enter password to access StepSafe</h1>
+      <p>
+        This site is password-protected to reduce casual scraping and unauthorized access while the
+        project is being reviewed.
+      </p>
+
+      <form class="site-password-form" @submit.prevent="unlockSite">
+        <label class="site-password-form__label" for="site-password-input"> Site password </label>
+        <input
+          id="site-password-input"
+          v-model="sitePasswordInput"
+          class="site-password-form__input"
+          type="password"
+          autocomplete="current-password"
+          placeholder="Enter password"
+          @input="sitePasswordError = ''"
+        />
+
+        <p v-if="sitePasswordError" class="site-password-form__error" role="alert">
+          {{ sitePasswordError }}
+        </p>
+
+        <button type="submit" class="site-password-form__button">Unlock site</button>
+      </form>
+    </div>
+  </section>
+
+  <main
+    v-else
+    id="home"
+    class="page-shell"
+    :class="{ 'page-shell--menu-open': isMenuOpen }"
+  >
     <header
       class="top-strip"
       :class="{ 'top-strip--elevated': isNavElevated }"
@@ -1911,7 +2017,7 @@ function teardownPageShell() {
               class="menu-link menu-link--home"
               @click="navigateToSection('home-section')"
             >
-              <span class="menu-link__icon" aria-hidden="true">🏠</span>
+              <span class="menu-link__icon" aria-hidden="true">H</span>
               <span class="menu-link__label">Home</span>
             </button>
 
@@ -1919,7 +2025,7 @@ function teardownPageShell() {
 
             <div class="menu-group">
               <button type="button" class="menu-link menu-link--check" @click="goToCheckScam">
-                <span class="menu-link__icon" aria-hidden="true">🔍</span>
+                <span class="menu-link__icon" aria-hidden="true">C</span>
                 <span class="menu-link__label">Check Scam</span>
                 <span class="menu-link__badge">Free</span>
               </button>
@@ -1945,11 +2051,7 @@ function teardownPageShell() {
               @click="navigateToSection(section.id)"
             >
               <span class="menu-link__icon" aria-hidden="true">{{
-                section.id === 'insights-section'
-                  ? '📊'
-                  : section.id === 'learn-section'
-                    ? '🎮'
-                    : '📌'
+                section.id === 'learn-section' ? 'L' : 'S'
               }}</span>
               <span class="menu-link__label">{{ section.label }}</span>
             </button>
@@ -1968,12 +2070,12 @@ function teardownPageShell() {
         <div class="container-shell hero-band__inner">
           <div class="hero-copy">
             <p class="hero-eyebrow">
-              JobSafer · we help you pause before you pay or share anything
+              We help you pause before you pay or share anything
             </p>
             <h1 class="hero-title-kinetic">
               Spot job
               <span class="hero-wordmark"
-                ><span class="hero-wordmark__red">scams</span>
+                ><span class="hero-wordmark__accent">scams</span>
                 <svg viewBox="0 0 170 22" aria-hidden="true">
                   <path d="M2 16C25 5 42 20 62 12C84 3 103 20 126 12C141 7 152 8 168 13" />
                 </svg>
@@ -1981,32 +2083,20 @@ function teardownPageShell() {
               before they cost you.
             </h1>
             <p class="hero-summary copy-block">
-              All scams follow patterns — we are here to help you spot them before they cost you.
-              Never be ashamed of a tricky script; you are not alone in this.
+              Every scam comes with patterns. We help you spot them early, act with confidence,
+              and recover if something goes wrong.
             </p>
             <div class="hero-tags" aria-label="Common scam angles JobSafer helps with">
               <span>Task scams</span>
-              <span>📩 Fake Recruiters</span>
-              <span>💸 Upfront Fee Traps</span>
+              <span>Fake recruiters</span>
+              <span>Upfront fee traps</span>
             </div>
-            <div class="hero-actions">
-              <a
-                class="cta-primary cta-primary--solid"
-                href="#check-section"
-                @click.prevent="goToCheckScam"
-              >
-                Check scam now
-                <ArrowRight :size="16" aria-hidden="true" />
-              </a>
-              <button
-                type="button"
-                class="cta-primary cta-primary--secondary"
-                @click="navigateToSection('learn-section')"
-              >
-                Try the simulator
-              </button>
-            </div>
-            <p class="hero-free-note">Free &amp; open to everyone · No sign-up needed</p>
+            <p class="hero-free-note">
+              <ShieldCheck :size="14" aria-hidden="true" />
+              <span>Free &amp; open to everyone</span>
+              <span class="hero-free-note__dot" aria-hidden="true">|</span>
+              <span>No sign-up needed</span>
+            </p>
           </div>
           <div class="hero-art" aria-hidden="true">
             <div class="hero-orb hero-orb--a"></div>
@@ -2033,8 +2123,73 @@ function teardownPageShell() {
       </section>
 
       <section
+        class="home-preview scene-panel scene-panel--raise snap-stage section-fade section-fade--hero reveal-on-scroll"
+        aria-label="Scam check preview"
+      >
+        <div class="home-preview-card">
+          <article class="home-preview-pane home-preview-pane--message">
+            <p class="home-preview-pane__kicker">Scam check preview</p>
+            <div class="home-preview-quote-stack">
+              <p class="home-preview-quote home-preview-quote--lead">
+                <span>Earn </span>
+                <mark>$200 daily</mark>
+                <span> with </span>
+                <mark>simple tasks</mark>
+                <span> and easy money.</span>
+                <span class="home-preview-quote__line-break" aria-hidden="true"></span>
+                <span>To activate your account and unlock payout, </span>
+                <mark>transfer</mark>
+                <span> the onboarding fee now and complete payment </span>
+                <mark>immediately</mark>
+                <span>.</span>
+              </p>
+            </div>
+          </article>
+
+          <article class="home-preview-pane home-preview-pane--score">
+            <p class="home-preview-pane__kicker">Risk score</p>
+            <div class="home-preview-score-inline__gauge">
+              <svg
+                class="home-preview-score-arc"
+                viewBox="0 -18 240 170"
+                role="img"
+                aria-label="Risk score 100 out of 100"
+              >
+                <path class="home-preview-score-arc__track" d="M8 114 A106 106 0 0 1 232 114" pathLength="100"></path>
+                <path
+                  class="home-preview-score-arc__progress"
+                  d="M8 114 A106 106 0 0 1 232 114"
+                  pathLength="100"
+                ></path>
+                <g class="home-preview-score-svg__text" transform="translate(130 98)">
+                  <text class="home-preview-score-svg__value" text-anchor="end">100</text>
+                  <text class="home-preview-score-svg__unit" x="20" y="-2" text-anchor="start">/100</text>
+                </g>
+              </svg>
+            </div>
+            <p class="home-preview-score__label">Severe concern</p>
+          </article>
+
+          <article class="home-preview-pane home-preview-pane--action">
+            <p class="home-preview-pane__kicker">Priority action</p>
+            <p class="home-preview-alert">
+              <span class="home-preview-alert__icon" aria-hidden="true">!</span>
+              <span>
+                <strong>Stop here, don't pay anything.</strong>
+                Verify the business through official channels.
+              </span>
+            </p>
+            <button type="button" class="cta-primary cta-primary--solid home-preview-cta-btn" @click="goToCheckScam">
+              <span>Check scam now</span>
+              <ArrowRight :size="16" aria-hidden="true" />
+            </button>
+          </article>
+        </div>
+      </section>
+
+      <section
         ref="statsBandRef"
-        class="stats-strip scene-panel scene-panel--raise scene-panel--alert snap-stage section-fade section-fade--stats reveal-on-scroll"
+        class="stats-strip scene-panel scene-panel--raise scene-panel--alert snap-stage section-fade section-fade--stats"
         aria-label="Scam impact stats"
       >
         <div class="container-shell stats-strip__inner">
@@ -2057,57 +2212,55 @@ function teardownPageShell() {
       </section>
 
       <section
-        class="how-it-works scene-panel scene-panel--raise snap-stage section-c section-fade section-fade--how"
+        class="how-it-works how-it-works-strip scene-panel snap-stage section-c section-fade section-fade--how"
       >
         <div class="container-shell">
-          <div class="how-heading-wrap reveal-on-scroll reveal-soft">
-            <p class="scene-kicker">Scam journey map</p>
-            <h2 class="section-title">How JobSafer Works</h2>
-          </div>
-          <p class="how-copy">
-            You can start anywhere.
-            <span class="how-copy__em how-copy__em--check">Check Scam</span>,
-            <span class="how-copy__em how-copy__em--insights">Insights</span>,
-            <span class="how-copy__em how-copy__em--learn">Learn</span>, and
-            <span class="how-copy__em how-copy__em--support">Support</span>
-            work together to keep you safer.
-          </p>
-          <div class="how-workflow-panel">
-            <div class="how-grid">
-              <svg
-                class="how-grid__connector"
-                viewBox="0 0 100 10"
-                preserveAspectRatio="none"
-                aria-hidden="true"
-              >
-                <defs>
-                  <linearGradient id="howConnectorGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stop-color="#D9A441" />
-                    <stop offset="58%" stop-color="#0F9F8F" />
-                    <stop offset="100%" stop-color="#3B6F8F" />
-                  </linearGradient>
-                </defs>
-                <line class="how-grid__connector-base" x1="0" y1="5" x2="100" y2="5"></line>
-                <line class="how-grid__connector-flow" x1="0" y1="5" x2="100" y2="5"></line>
-              </svg>
-              <article
-                v-for="step in howItWorksSteps"
-                :key="step.number"
-                class="how-step reveal-on-scroll reveal-soft"
-                :class="`how-step--${step.number}`"
-                :style="{ '--reveal-delay': `${(Number(step.number) - 1) * 150}ms` }"
-                role="button"
-                tabindex="0"
-                :aria-label="`Go to ${step.title} section`"
-                @click="navigateToHowStep(step.number)"
-                @keydown.enter.prevent="navigateToHowStep(step.number)"
-              >
-                <p class="how-step__number" :data-step="step.number">{{ step.number }}</p>
-                <h3>{{ step.title }}</h3>
-                <p>{{ step.description }}</p>
-                <p class="how-step__hint">{{ step.hint }}</p>
-                <span class="how-step__nav-hint" aria-hidden="true">Go to {{ step.title }} →</span>
-              </article>
+          <div class="how-journey">
+            <p class="how-journey__kicker">HOW JOBSAFER WORKS</p>
+            <div class="how-journey__row">
+              <ol class="how-journey__steps" role="list" aria-label="JobSafer workflow">
+                <li
+                  v-for="(step, stepIndex) in howItWorksSteps"
+                  :key="step.number"
+                  class="how-journey-step reveal-on-scroll reveal-soft"
+                  :class="`how-journey-step--${step.number}`"
+                  role="button"
+                  tabindex="0"
+                  :aria-label="`Go to ${step.title} section`"
+                  @click="navigateToHowStep(step.number)"
+                  @keydown.enter.prevent="navigateToHowStep(step.number)"
+                >
+                  <span class="how-journey-step__icon" aria-hidden="true">
+                    <component :is="step.icon" :size="26" />
+                  </span>
+                  <div class="how-journey-step__copy">
+                    <p class="how-journey-step__title">{{ step.number }}. {{ step.title }}</p>
+                    <p class="how-journey-step__desc">{{ step.description }}</p>
+                  </div>
+                  <span
+                    v-if="stepIndex < howItWorksSteps.length - 1"
+                    class="how-journey-step__arrow"
+                    aria-hidden="true"
+                  >
+                    <ArrowRight class="how-journey-step__arrow-icon" :size="16" :stroke-width="1.8" />
+                  </span>
+                </li>
+              </ol>
+              <aside class="how-journey-cta" aria-label="Start simulator">
+                <p class="how-journey-cta__question">Ready to see through scams?</p>
+                <button
+                  type="button"
+                  class="cta-primary how-journey-cta__button"
+                  @click="scrollToSection('learn-section')"
+                >
+                  Start simulator
+                  <ArrowRight :size="16" aria-hidden="true" />
+                </button>
+                <p class="how-journey-cta__free">
+                  <Lock :size="12" aria-hidden="true" />
+                  <span>Free &amp; open to everyone</span>
+                </p>
+              </aside>
             </div>
           </div>
         </div>
@@ -2119,16 +2272,6 @@ function teardownPageShell() {
         aria-label="Check section"
       >
         <div id="check-scam-panel" class="container-shell">
-          <div class="scan-console-shell reveal-on-scroll reveal-soft" aria-hidden="true">
-            <p class="scan-console-shell__kicker">Scan status</p>
-            <div class="scan-console-shell__line" :key="`scan-status-${scannerPulseTick}`">
-              <span class="scan-console-shell__dot"></span>
-              <span>{{ scannerStatusCurrent }}</span>
-            </div>
-            <div class="scan-console-shell__meter" role="presentation">
-              <span class="scan-console-shell__meter-bar"></span>
-            </div>
-          </div>
           <SubmissionPanel
             :quick-mode="submissionQuickMode"
             :is-analyzing="isAnalyzing"
@@ -2179,119 +2322,10 @@ function teardownPageShell() {
         </div>
       </section>
 
-      <section
-        class="info-grid scene-panel scene-panel--resources snap-stage section-c section-fade section-fade--news"
-        aria-label="Guidance blocks"
-      >
-        <div class="container-shell info-grid__inner">
-          <article
-            class="info-block info-block--warning reveal-on-scroll reveal-slide-left"
-            style="--reveal-delay: 0ms"
-          >
-            <h2 class="section-title">Quick tips</h2>
-            <p class="info-summary">Fast scam checks for step-by-step simple tasks fraud.</p>
-            <div class="info-layout">
-              <div class="info-rows">
-                <a
-                  v-for="item in quickTips"
-                  :key="item.href"
-                  class="resource-row"
-                  :style="{ '--strip-accent': item.stripColor || '#D0312D' }"
-                  :href="item.href"
-                  :aria-label="externalAriaLabel(item.title)"
-                  title="Opens in a new tab"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  referrerpolicy="no-referrer"
-                >
-                  <span class="resource-accent" aria-hidden="true"></span>
-                  <div class="resource-main">
-                    <p class="resource-title">{{ item.title }}</p>
-                    <p class="resource-copy">{{ item.summary }}</p>
-                    <span class="resource-source">{{ item.source }}</span>
-                  </div>
-                  <figure
-                    class="resource-media"
-                    :class="{ 'resource-media--loading': !isResourceImageReady(item) }"
-                    aria-hidden="true"
-                  >
-                    <img
-                      :src="item.image"
-                      alt=""
-                      loading="lazy"
-                      referrerpolicy="no-referrer"
-                      @load="markResourceImageLoaded(item)"
-                      @error="markResourceImageError($event, item)"
-                    />
-                  </figure>
-                </a>
-              </div>
-            </div>
-          </article>
-
-          <article
-            class="info-block info-block--safe reveal-on-scroll reveal-slide-right"
-            style="--reveal-delay: 120ms"
-          >
-            <h2 class="section-title">Scam alerts</h2>
-            <p class="info-summary">
-              Recent news coverage and case reports on employment and task scams.
-            </p>
-            <div class="info-layout">
-              <div class="info-rows">
-                <a
-                  v-for="item in learningCards"
-                  :key="item.href"
-                  class="resource-row"
-                  :style="{ '--strip-accent': item.stripColor || '#1F2D6B' }"
-                  :href="item.href"
-                  :aria-label="externalAriaLabel(item.title)"
-                  title="Opens in a new tab"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  referrerpolicy="no-referrer"
-                >
-                  <span class="resource-accent" aria-hidden="true"></span>
-                  <div class="resource-main">
-                    <p class="resource-title">{{ item.title }}</p>
-                    <p class="resource-copy">{{ item.summary }}</p>
-                    <span class="resource-source">{{ item.source }}</span>
-                  </div>
-                  <figure
-                    class="resource-media"
-                    :class="{ 'resource-media--loading': !isResourceImageReady(item) }"
-                    aria-hidden="true"
-                  >
-                    <img
-                      :src="item.image"
-                      alt=""
-                      loading="lazy"
-                      referrerpolicy="no-referrer"
-                      @load="markResourceImageLoaded(item)"
-                      @error="markResourceImageError($event, item)"
-                    />
-                  </figure>
-                </a>
-              </div>
-            </div>
-          </article>
-        </div>
-      </section>
-
       <div
         class="editorial-transition editorial-transition--data-band section-fade section-fade--data-bridge"
         aria-hidden="true"
       ></div>
-
-      <section
-        id="insights-section"
-        class="panel scene-panel scene-panel--data snap-stage section-a section-fade section-fade--insights reveal-on-scroll"
-        aria-label="Insights section"
-      >
-        <div class="container-shell">
-          <InsightsPanel />
-        </div>
-      </section>
 
       <section
         id="learn-section"
@@ -2317,39 +2351,60 @@ function teardownPageShell() {
                 and see exactly where things go wrong.
               </p>
             </div>
+            <p class="learn-hero__pill">{{ learnCompletedScenarioCount }} / 5 missions completed</p>
           </div>
 
           <div class="learn-flow-scroll">
             <div id="learn-workflow-anchor" class="learn-flow">
               <div v-if="learnStep === 'entry'" class="learn-entry">
-                <p class="learn-entry__eyebrow">Pick your mission</p>
-                <h4>Train with Alex</h4>
-                <p class="learn-entry__mission-subline">
-                  Compact mission board · choose one scenario
-                </p>
-                <div class="learn-scenario-grid" role="list" aria-label="Scam scenario options">
-                  <button
-                    v-for="option in learnScenarioOptions"
-                    :key="option.key"
-                    type="button"
-                    class="scenario-chip"
-                    :class="{ 'scenario-chip--active': learnScamType === option.key }"
-                    @click="requestLearnScenario(option.key)"
-                  >
-                    <span class="scenario-chip__label">
-                      <b>{{ option.label }}</b>
-                      <i aria-hidden="true">{{ option.icon }}</i>
-                    </span>
-                    <em v-if="learnCompletion?.[option.key]?.completed" class="scenario-chip__done"
-                      >Done</em
-                    >
-                  </button>
+                <div class="learn-entry__top">
+                  <div>
+                    <p class="learn-entry__eyebrow">Mission rail</p>
+                    <h4>Train with Alex</h4>
+                    <p class="learn-entry__mission-subline">
+                      Choose one mission and practise the script before pressure escalates.
+                    </p>
+                  </div>
                 </div>
+
+                <div class="learn-entry__layout">
+                  <div class="learn-mission-rail" role="list" aria-label="Scam scenario options">
+                    <button
+                      v-for="option in learnScenarioOptions"
+                      :key="option.key"
+                      type="button"
+                      class="learn-mission-row"
+                      :class="{ 'learn-mission-row--active': learnScamType === option.key }"
+                      @click="requestLearnScenario(option.key)"
+                    >
+                      <span class="learn-mission-row__num" aria-hidden="true">{{ option.icon }}</span>
+                      <span class="learn-mission-row__title">{{ option.label }}</span>
+                      <span
+                        class="learn-mission-row__status"
+                        :class="{ 'learn-mission-row__status--done': learnCompletion?.[option.key]?.completed }"
+                      >
+                        {{ learnCompletion?.[option.key]?.completed ? 'Done' : 'Ready' }}
+                      </span>
+                    </button>
+                  </div>
+
+                  <aside class="learn-mission-preview" aria-label="Alex coach preview">
+                    <p class="learn-mission-preview__kicker">Alex coach preview</p>
+                    <h5>Today's training focus</h5>
+                    <p class="learn-mission-preview__risk">
+                      <span>Pressure tactic:</span> fake balance + urgency
+                    </p>
+                    <p class="learn-mission-preview__note">
+                      Learn how the script escalates before money is requested.
+                    </p>
+                  </aside>
+                </div>
+
                 <div class="learn-entry__actions">
                   <button class="learn-primary" type="button" @click="startWalkthroughDirectly">
                     Start walkthrough
                   </button>
-                  <button class="learn-secondary" type="button" @click="startLearnQuiz">
+                  <button class="learn-secondary" type="button" @click="openLearnFullscreenPromptForQuiz">
                     Test scam type
                   </button>
                 </div>
@@ -2362,7 +2417,7 @@ function teardownPageShell() {
                   type="button"
                   @click="startWalkthroughDirectly"
                 >
-                  Skip to walkthrough →
+                  Skip to walkthrough ->
                 </button>
               </div>
 
@@ -2375,7 +2430,7 @@ function teardownPageShell() {
                   type="button"
                   @click="openWalkthroughFromQuiz"
                 >
-                  See how this scam works — start walkthrough →
+                  See how this scam works - start walkthrough ->
                 </button>
               </div>
 
@@ -2406,6 +2461,60 @@ function teardownPageShell() {
               @result="onQuickCheckResult"
               @close="onQuickCheckModalClose"
             />
+
+            <Teleport to="body">
+              <div
+                v-if="learnFullscreenPromptOpen"
+                class="sim-fs-modal sim-fs-modal--learn-entry"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Fullscreen preference"
+              >
+                <button
+                  type="button"
+                  class="sim-fs-modal__backdrop"
+                  aria-label="Close fullscreen choice"
+                  @click="confirmLearnFullscreenChoice(false)"
+                ></button>
+                <div class="sim-fs-modal__panel">
+                  <p class="sim-fs-modal__title">Enter fullscreen mode?</p>
+                  <p class="sim-fs-modal__copy">
+                    Fullscreen helps focus during the simulation.
+                  </p>
+                  <p class="sim-fs-modal__tip">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M4 9v6h4l5 4V5L8 9H4zm12.5-1.5a1 1 0 0 1 1.4 0 6.5 6.5 0 0 1 0 9.2 1 1 0 0 1-1.4-1.4 4.5 4.5 0 0 0 0-6.4 1 1 0 0 1 0-1.4zm3.2-3.2a1 1 0 0 1 1.4 0 11 11 0 0 1 0 15.6 1 1 0 0 1-1.4-1.4 9 9 0 0 0 0-12.8 1 1 0 0 1 0-1.4z"
+                      />
+                    </svg>
+                    <span>Tip: the simulator includes sound effects.</span>
+                  </p>
+                  <div class="sim-fs-modal__actions">
+                    <button
+                      class="sim-fs-modal__btn sim-fs-modal__btn--primary"
+                      type="button"
+                      @click="confirmLearnFullscreenChoice(true)"
+                    >
+                      Enter fullscreen
+                    </button>
+                    <button
+                      class="sim-fs-modal__btn sim-fs-modal__btn--secondary"
+                      type="button"
+                      @click="confirmLearnFullscreenChoice(false)"
+                    >
+                      Continue windowed
+                    </button>
+                    <button
+                      class="sim-fs-modal__btn sim-fs-modal__btn--secondary sim-fs-modal__btn--full"
+                      type="button"
+                      @click="startWalkthroughFromLearnFullscreenPrompt"
+                    >
+                      Back to walkthrough
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </Teleport>
           </div>
         </div>
       </section>
@@ -2547,7 +2656,7 @@ function teardownPageShell() {
                   This AI-style chat gives calm first-step support while you decide what to do next.
                 </p>
 
-                <div ref="supportChatThreadRef" class="support-chat-thread" role="log" aria-live="polite">
+                <div class="support-chat-thread" role="log" aria-live="polite">
                   <article
                     v-for="message in emotionalSupportMessages"
                     :key="message.id"
@@ -2570,15 +2679,32 @@ function teardownPageShell() {
                     :key="prompt"
                     type="button"
                     class="support-chat-prompt"
-                    @click="sendEmotionalSupportMessage(prompt)"
+                    @click="stageEmotionalSupportPrompt(prompt)"
                   >
                     {{ prompt }}
                   </button>
                 </div>
 
                 <p class="support-chat-panel__note">
-                  Choose one fixed option above and the chat will respond right away.
+                  Tap a suggested prompt to place it in the chat box, then press Send when you are
+                  ready.
                 </p>
+
+                <form class="support-chat-form" @submit.prevent="sendEmotionalSupportMessage()">
+                  <label class="support-chat-form__label" for="support-emotional-chat">
+                    Tell the chat what feels hardest right now
+                  </label>
+                  <textarea
+                    id="support-emotional-chat"
+                    v-model="emotionalSupportInput"
+                    class="support-chat-form__input"
+                    rows="3"
+                    placeholder="I feel embarrassed and my mind will not slow down..."
+                  />
+                  <div class="support-chat-form__actions">
+                    <button type="submit" class="support-chat-form__button">Send</button>
+                  </div>
+                </form>
               </section>
 
               <section class="support-links-panel" aria-label="Official support links">
@@ -2606,6 +2732,107 @@ function teardownPageShell() {
               </section>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section
+        class="info-grid scene-panel scene-panel--resources snap-stage section-c section-fade section-fade--news"
+        aria-label="Guidance blocks"
+      >
+        <div class="container-shell info-grid__inner">
+          <article
+            class="info-block info-block--warning reveal-on-scroll reveal-slide-left"
+            style="--reveal-delay: 0ms"
+          >
+            <h2 class="section-title">Quick tips</h2>
+            <p class="info-summary">Fast scam checks for step-by-step simple tasks fraud.</p>
+            <div class="info-layout">
+              <div class="info-rows">
+                <a
+                  v-for="item in quickTips"
+                  :key="item.href"
+                  class="resource-row"
+                  :style="{ '--strip-accent': item.stripColor || '#D0312D' }"
+                  :href="item.href"
+                  :aria-label="externalAriaLabel(item.title)"
+                  title="Opens in a new tab"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  referrerpolicy="no-referrer"
+                >
+                  <span class="resource-accent" aria-hidden="true"></span>
+                  <div class="resource-main">
+                    <span class="resource-tag">{{ item.tag || 'Resource' }}</span>
+                    <p class="resource-title">{{ item.title }}</p>
+                    <p class="resource-copy">{{ item.summary }}</p>
+                    <span class="resource-source">{{ item.source }}</span>
+                  </div>
+                  <figure
+                    class="resource-media"
+                    :class="{ 'resource-media--loading': !isResourceImageReady(item) }"
+                    aria-hidden="true"
+                  >
+                    <img
+                      :src="item.image"
+                      alt=""
+                      loading="lazy"
+                      referrerpolicy="no-referrer"
+                      @load="markResourceImageLoaded(item)"
+                      @error="markResourceImageError($event, item)"
+                    />
+                  </figure>
+                </a>
+              </div>
+            </div>
+          </article>
+
+          <article
+            class="info-block info-block--safe reveal-on-scroll reveal-slide-right"
+            style="--reveal-delay: 120ms"
+          >
+            <h2 class="section-title">Scam alerts</h2>
+            <p class="info-summary">
+              Recent news coverage and case reports on employment and task scams.
+            </p>
+            <div class="info-layout">
+              <div class="info-rows">
+                <a
+                  v-for="item in learningCards"
+                  :key="item.href"
+                  class="resource-row"
+                  :style="{ '--strip-accent': item.stripColor || '#1F2D6B' }"
+                  :href="item.href"
+                  :aria-label="externalAriaLabel(item.title)"
+                  title="Opens in a new tab"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  referrerpolicy="no-referrer"
+                >
+                  <span class="resource-accent" aria-hidden="true"></span>
+                  <div class="resource-main">
+                    <span class="resource-tag">{{ item.tag || 'Update' }}</span>
+                    <p class="resource-title">{{ item.title }}</p>
+                    <p class="resource-copy">{{ item.summary }}</p>
+                    <span class="resource-source">{{ item.source }}</span>
+                  </div>
+                  <figure
+                    class="resource-media"
+                    :class="{ 'resource-media--loading': !isResourceImageReady(item) }"
+                    aria-hidden="true"
+                  >
+                    <img
+                      :src="item.image"
+                      alt=""
+                      loading="lazy"
+                      referrerpolicy="no-referrer"
+                      @load="markResourceImageLoaded(item)"
+                      @error="markResourceImageError($event, item)"
+                    />
+                  </figure>
+                </a>
+              </div>
+            </div>
+          </article>
         </div>
       </section>
 
@@ -2664,7 +2891,7 @@ function teardownPageShell() {
                   <span>{{ item.label }}</span>
                 </a>
               </div>
-              <p class="site-footer__meta">©2026 JobSafer</p>
+              <p class="site-footer__meta">(c) 2026 JobSafer</p>
               <div class="site-footer__team" aria-label="Production Team">
                 <span class="site-footer__team-label">Production Team</span>
                 <img
@@ -2683,6 +2910,101 @@ function teardownPageShell() {
 </template>
 
 <style scoped>
+.site-password-gate {
+  align-items: center;
+  background:
+    radial-gradient(circle at top, rgba(27, 46, 94, 0.12), transparent 34%),
+    linear-gradient(180deg, #fcf7f1 0%, #f4ede0 100%);
+  color: #1a1a2a;
+  display: grid;
+  min-height: 100vh;
+  padding: 32px 20px;
+}
+
+.site-password-card {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(27, 46, 94, 0.12);
+  border-radius: 28px;
+  box-shadow: 0 24px 60px rgba(27, 46, 94, 0.12);
+  margin: 0 auto;
+  max-width: 540px;
+  padding: 32px;
+  width: min(100%, 540px);
+}
+
+.site-password-card__eyebrow {
+  color: #1b2e5e;
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+
+.site-password-card h1 {
+  color: #1b2e5e;
+  font-family: var(--ms-font-heading);
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  line-height: 1.05;
+  margin: 0 0 12px;
+}
+
+.site-password-card p {
+  color: #6b7280;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.site-password-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.site-password-form__label {
+  color: #1b2e5e;
+  font-weight: 700;
+}
+
+.site-password-form__input {
+  background: #fffdfa;
+  border: 1px solid #d9d7d1;
+  border-radius: 16px;
+  color: #1a1a2a;
+  font-family: var(--ms-font-stack);
+  font-size: 1rem;
+  padding: 14px 16px;
+}
+
+.site-password-form__input:focus {
+  border-color: #1b2e5e;
+  box-shadow: 0 0 0 4px rgba(27, 46, 94, 0.12);
+  outline: none;
+}
+
+.site-password-form__error {
+  color: #b42318;
+  font-size: 0.92rem;
+  margin: 0;
+}
+
+.site-password-form__button {
+  background: #1b2e5e;
+  border: 0;
+  border-radius: 999px;
+  color: white;
+  cursor: pointer;
+  font-family: var(--ms-font-stack);
+  font-size: 1rem;
+  font-weight: 800;
+  padding: 14px 18px;
+}
+
+.site-password-form__button:hover {
+  background: #13244a;
+}
+
 .page-shell {
   background: #fcf7f1;
   color: #4b5563;
@@ -2690,6 +3012,12 @@ function teardownPageShell() {
   overflow-x: hidden;
   padding: 0;
   position: relative;
+}
+
+:global(*),
+:global(*::before),
+:global(*::after) {
+  box-sizing: border-box;
 }
 
 :global(html),
@@ -2700,10 +3028,26 @@ function teardownPageShell() {
   scroll-snap-type: y mandatory;
 }
 
+:global(html.menu-open),
+:global(body.menu-open) {
+  overflow: hidden !important;
+}
+
+.page-shell--menu-open .flow-wrapper {
+  pointer-events: none;
+}
+
 .container-shell {
   margin: 0 auto;
   max-width: 1280px;
   padding: 0 32px;
+}
+
+:global(img),
+:global(canvas),
+:global(video),
+:global(iframe) {
+  max-width: 100%;
 }
 
 .flow-wrapper {
@@ -2715,7 +3059,10 @@ function teardownPageShell() {
   position: relative;
   width: 100%;
   z-index: 1;
-  transition: opacity 0.2s ease;
+  transition:
+    opacity 0.34s ease,
+    filter 0.34s ease,
+    transform 0.34s ease;
 }
 
 /* Scene rhythm + rise-cover transitions */
@@ -2784,8 +3131,15 @@ function teardownPageShell() {
   border-top-right-radius: 24px;
 }
 
+.scene-panel--simulator {
+  background: linear-gradient(180deg, #f4ede0 0%, #fcf7f1 100%);
+  padding: 64px 0;
+}
+
 .flow-wrapper--fading {
-  opacity: 0.86;
+  opacity: 0.45;
+  filter: blur(1.4px) saturate(0.9);
+  transform: translateY(6px);
 }
 
 .section-a {
@@ -2977,30 +3331,34 @@ function teardownPageShell() {
 }
 
 .learn-hero {
-  margin-bottom: 24px;
-  padding: 0 4px;
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding: 0 2px;
 }
 
 .learn-hero__copy {
-  max-width: 680px;
+  max-width: 760px;
 }
 
 .learn-kicker-main {
-  color: #d8a24a;
+  color: #1b2e5e;
   font-size: 0.76rem;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.13em;
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   text-transform: uppercase;
 }
 
 .learn-wave-heading {
   color: #1b2e5e;
-  font-size: clamp(1.9rem, 3.6vw, 2.9rem);
+  font-size: clamp(1.8rem, 3.2vw, 2.35rem);
   font-weight: 800;
   letter-spacing: -0.02em;
-  line-height: 1.08;
-  margin: 0 0 14px;
+  line-height: 1.1;
+  margin: 0 0 10px;
 }
 
 .learn-wave-word {
@@ -3020,17 +3378,34 @@ function teardownPageShell() {
 
 .learn-wave-word path {
   fill: none;
-  stroke: #7a9a82;
+  stroke: #d8a24a;
   stroke-linecap: round;
-  stroke-width: 4;
+  stroke-width: 3.2;
 }
 
 .learn-head-summary {
-  color: #5a5a5a;
-  font-size: 0.98rem;
-  line-height: 1.6;
+  color: #5b677f;
+  font-size: 0.94rem;
+  line-height: 1.5;
   margin: 0;
-  max-width: 560px;
+  max-width: 780px;
+  text-wrap: pretty;
+  white-space: normal;
+}
+
+.learn-hero__pill {
+  align-self: flex-start;
+  background: #fff6df;
+  border: 1px solid #eadfce;
+  border-radius: 999px;
+  color: #1b2e5e;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  margin: 6px 0 0;
+  padding: 8px 12px;
+  white-space: nowrap;
 }
 
 .learn-hero__icon {
@@ -3087,7 +3462,7 @@ function teardownPageShell() {
 
 .learn-flow {
   display: grid;
-  gap: var(--ms-space-section-gap);
+  gap: 14px;
   width: 100%;
   max-width: 100%;
   margin-inline: auto;
@@ -3097,14 +3472,20 @@ function teardownPageShell() {
 }
 
 .learn-entry {
-  background: #fcf7f1;
-  border: 1px solid #e3d7c8;
-  border-left: 5px solid #3b6f8f;
-  border-radius: 20px;
-  padding: 20px;
+  background: linear-gradient(180deg, #fcf7f1 0%, #f9f2e7 100%);
+  border: 1px solid #e7dac7;
+  border-radius: 12px;
+  padding: 16px;
   display: grid;
+  gap: 12px;
+  box-shadow: none;
+}
+
+.learn-entry__top {
+  align-items: start;
+  display: flex;
   gap: 14px;
-  box-shadow: 0 12px 24px rgba(27, 46, 94, 0.08);
+  justify-content: space-between;
 }
 
 .learn-entry__eyebrow {
@@ -3119,15 +3500,127 @@ function teardownPageShell() {
 .learn-entry h4 {
   margin: 0;
   color: #1b2e5e;
-  font-size: var(--ms-type-title-md);
-  line-height: var(--ms-line-title-regular);
+  font-size: 1.12rem;
+  line-height: 1.25;
 }
 
-.learn-entry__intro {
+.learn-entry__mission-subline {
+  color: #5b677f;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  margin: 6px 0 0;
+}
+
+.learn-entry__layout {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 0.56fr);
+}
+
+.learn-mission-rail {
+  border-top: 1px solid rgba(27, 46, 94, 0.18);
+  display: grid;
+}
+
+.learn-mission-row {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(27, 46, 94, 0.16);
+  color: #1b2e5e;
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 46px;
+  padding: 8px 8px;
+  position: relative;
+  text-align: left;
+  width: 100%;
+}
+
+.learn-mission-row::after {
+  background: transparent;
+  content: '';
+  height: 2px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: -1px;
+}
+
+.learn-mission-row--active {
+  background: rgba(216, 162, 74, 0.12);
+}
+
+.learn-mission-row--active::after {
+  background: #d8a24a;
+}
+
+.learn-mission-row__num {
+  color: #2f5fa7;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.learn-mission-row__title {
+  color: #1b2e5e;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.learn-mission-row__status {
+  color: #5b677f;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.learn-mission-row__status--done {
+  color: #0f7e75;
+}
+
+.learn-mission-preview {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid #e7dac7;
+  border-radius: 10px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.learn-mission-preview__kicker {
+  color: #1b2e5e;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
   margin: 0;
-  color: #6b7280;
-  font-size: var(--ms-type-body-lg);
-  line-height: var(--ms-line-body-loose);
+  text-transform: uppercase;
+}
+
+.learn-mission-preview h5 {
+  color: #1b2e5e;
+  font-size: 0.98rem;
+  margin: 0;
+}
+
+.learn-mission-preview__risk {
+  color: #b72f2a;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.learn-mission-preview__risk span {
+  color: #1b2e5e;
+  font-weight: 800;
+}
+
+.learn-mission-preview__note {
+  color: #5b677f;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  margin: 0;
 }
 
 .learn-entry__progress {
@@ -3324,7 +3817,124 @@ function teardownPageShell() {
 .learn-entry__actions {
   display: flex;
   flex-wrap: wrap;
+  gap: 10px;
+}
+
+.sim-fs-modal {
+  inset: 0;
+  position: fixed;
+  z-index: 980;
+}
+
+.sim-fs-modal__backdrop {
+  background: rgba(15, 23, 42, 0.46);
+  border: 0;
+  cursor: default;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  position: absolute;
+  width: 100%;
+}
+
+.sim-fs-modal__panel {
+  background: #ffffff;
+  border: 1px solid #e3d7c8;
+  border-radius: 12px;
+  box-shadow: 0 14px 30px rgba(27, 46, 94, 0.2);
+  left: 50%;
+  max-width: min(92vw, 430px);
+  padding: 16px 16px 14px;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+}
+
+.sim-fs-modal__title {
+  color: #1b2e5e;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.sim-fs-modal__copy {
+  color: #5f6473;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 8px 0 0;
+}
+
+.sim-fs-modal__tip {
+  align-items: center;
+  color: #5f6473;
+  display: flex;
   gap: 8px;
+  margin: 8px 0 0;
+}
+
+.sim-fs-modal__tip svg {
+  fill: #3b6f8f;
+  flex: 0 0 auto;
+  height: 16px;
+  width: 16px;
+}
+
+.sim-fs-modal__tip span {
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.sim-fs-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.sim-fs-modal__btn {
+  background: #ffffff;
+  border: 1px solid rgba(27, 46, 94, 0.22);
+  border-radius: 10px;
+  color: #1b2e5e;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.35;
+  padding: 10px 12px;
+  text-align: center;
+  transition:
+    background-color 0.16s ease,
+    color 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.sim-fs-modal__btn--primary {
+  background: #1b2e5e;
+  border: 0;
+  color: #ffffff;
+}
+
+.sim-fs-modal__btn--secondary {
+  background: #ffffff;
+  border: 1px solid rgba(27, 46, 94, 0.22);
+  color: #1b2e5e;
+}
+
+.sim-fs-modal__btn--full {
+  width: 100%;
+}
+
+.sim-fs-modal__btn--primary:hover,
+.sim-fs-modal__btn--primary:focus-visible {
+  background: #13244a;
+}
+
+.sim-fs-modal__btn--secondary:hover,
+.sim-fs-modal__btn--secondary:focus-visible {
+  background: #f4ede0;
 }
 
 .learn-primary--compact,
@@ -3613,19 +4223,19 @@ function teardownPageShell() {
 .top-strip {
   color: #1a1a2a;
   left: 0;
-  padding: 10px 0;
+  padding: 1px 0 0;
   position: fixed;
   right: 0;
   top: 0;
-  z-index: 90;
+  z-index: 500;
 }
 
 .top-strip__inner {
   align-items: center;
-  background: rgba(252, 247, 241, 0.97);
-  border: 1px solid #e3d7c8;
-  border-radius: 18px;
-  box-shadow: 0 2px 8px rgba(59, 111, 143, 0.06);
+  background: rgba(252, 247, 241, 0.99);
+  border: 1px solid rgba(227, 215, 200, 0.9);
+  border-radius: 10px;
+  box-shadow: none;
   display: flex;
   gap: 14px;
   margin: 0 auto;
@@ -3633,12 +4243,12 @@ function teardownPageShell() {
   min-height: 35px;
   padding: 4px 24px;
   position: relative;
-  transition: box-shadow 0.24s ease;
+  transition: border-color 0.2s ease;
   width: calc(100% - 96px);
 }
 
 .top-strip--elevated .top-strip__inner {
-  box-shadow: 0 8px 22px rgba(59, 111, 143, 0.14);
+  border-color: rgba(203, 188, 169, 0.92);
 }
 
 .brand-home {
@@ -3695,11 +4305,11 @@ function teardownPageShell() {
 
 .top-nav-link:hover,
 .top-nav-link:focus-visible {
-  background: rgba(59, 111, 143, 0.08);
-  color: #3b6f8f;
+  background: transparent;
+  color: #1f4b96;
 }
 
-/* Active: navy text + mustard bottom-line — no filled pill */
+/* Active: navy text + mustard bottom-line, no filled pill */
 .top-nav-link--active {
   color: #1b2e5e;
   font-weight: 700;
@@ -3807,13 +4417,13 @@ function teardownPageShell() {
   max-height: 560px;
   opacity: 1;
   pointer-events: auto;
-  z-index: 101;
+  z-index: 620;
 }
 
 .top-menu-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 610;
   margin: 0;
   padding: 0;
   border: 0;
@@ -3925,7 +4535,7 @@ function teardownPageShell() {
 
 .hero-band {
   overflow: hidden;
-  padding: 82px 0 52px;
+  padding: 62px 0 20px;
   position: relative;
   isolation: isolate;
 }
@@ -3941,7 +4551,7 @@ function teardownPageShell() {
 .hero-band__inner {
   display: grid;
   gap: 26px;
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  grid-template-columns: minmax(0, 1.22fr) minmax(300px, 0.78fr);
   position: relative;
   z-index: 1;
 }
@@ -3954,21 +4564,21 @@ function teardownPageShell() {
 }
 
 .hero-eyebrow {
-  color: #3b6f8f;
-  font-size: 0.82rem;
+  color: #1b2e5e;
+  font-size: 0.76rem;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   margin: 0 0 18px;
   text-transform: uppercase;
 }
 
 h1 {
-  color: #1b2e5e;
-  font-size: clamp(3rem, 6vw, 64px);
+  color: #102553;
+  font-size: clamp(3rem, 5.6vw, 64px);
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   line-height: 1.04;
-  margin: 0 0 26px;
+  margin: 0 0 22px;
   max-width: 980px;
 }
 
@@ -3990,7 +4600,7 @@ h1 {
 
 .hero-wordmark path {
   fill: none;
-  stroke: #d8a24a;
+  stroke: #d0312d;
   stroke-linecap: round;
   stroke-width: 4.5;
   stroke-dasharray: 220;
@@ -3998,8 +4608,8 @@ h1 {
   animation: heroUnderlineDraw 920ms cubic-bezier(0.22, 1, 0.36, 1) 360ms forwards;
 }
 
-.hero-wordmark__red {
-  color: #d0312d;
+.hero-wordmark__accent {
+  color: #1b2e5e;
   display: inline-block;
   opacity: 0;
   transform: translateY(12px) scale(0.96);
@@ -4007,15 +4617,29 @@ h1 {
 }
 
 .hero-title-kinetic {
+  color: #121212;
   animation: heroHeadlineIn 620ms cubic-bezier(0.22, 1, 0.36, 1) 20ms both;
 }
 
 .hero-free-note {
-  color: #7a7a7a;
-  font-size: 0.8rem;
-  font-weight: 500;
+  align-items: center;
+  color: #6b7280;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.84rem;
+  font-weight: 600;
+  gap: 8px;
   letter-spacing: 0.02em;
   margin: 10px 0 0;
+}
+
+.hero-free-note :deep(svg) {
+  color: #6b7280;
+  flex: 0 0 auto;
+}
+
+.hero-free-note__dot {
+  color: #9ca3af;
 }
 
 .hero-highlight {
@@ -4023,11 +4647,11 @@ h1 {
 }
 
 .hero-summary {
-  color: #2b2b2b;
-  font-size: 1.05rem;
-  line-height: 1.65;
+  color: #4b5568;
+  font-size: 1.02rem;
+  line-height: 1.6;
   margin: 0 0 18px;
-  max-width: 540px;
+  max-width: 580px;
 }
 
 .hero-tags {
@@ -4038,12 +4662,13 @@ h1 {
 }
 
 .hero-tags span {
-  background: #eef2ff;
+  background: #eff3ff;
+  border: 1px solid rgba(27, 46, 94, 0.08);
   border-radius: 20px;
   color: #1b2e5e;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 13px;
 }
 
 .hero-actions {
@@ -4069,12 +4694,12 @@ h1 {
   display: inline-flex;
   font-family: inherit;
   gap: 8px;
-  font-size: 0.9rem;
+  font-size: 0.94rem;
   font-weight: 700;
   justify-content: center;
   line-height: 1.2;
-  min-height: 48px;
-  padding: 14px 24px;
+  min-height: 50px;
+  padding: 14px 26px;
   text-decoration: none;
   transition:
     background 0.2s ease,
@@ -4117,7 +4742,7 @@ h1 {
   background: transparent;
   display: flex;
   justify-content: center;
-  min-height: 300px;
+  min-height: 340px;
   pointer-events: none;
   padding: 8px;
   position: relative;
@@ -4134,20 +4759,20 @@ h1 {
 
 .hero-orb--a {
   animation: ambientDriftA 8.8s ease-in-out infinite;
-  background: radial-gradient(circle at 35% 35%, rgba(216, 164, 65, 0.44), rgba(216, 164, 65, 0));
-  height: 170px;
-  right: 34px;
-  top: 18px;
-  width: 170px;
+  background: radial-gradient(circle at 35% 35%, rgba(234, 194, 150, 0.55), rgba(234, 194, 150, 0));
+  height: 230px;
+  right: 28px;
+  top: -4px;
+  width: 230px;
 }
 
 .hero-orb--b {
   animation: ambientDriftB 10.4s ease-in-out infinite;
-  background: radial-gradient(circle at 55% 55%, rgba(139, 111, 246, 0.26), rgba(139, 111, 246, 0));
-  bottom: 10px;
-  height: 196px;
-  right: -24px;
-  width: 196px;
+  background: radial-gradient(circle at 55% 55%, rgba(242, 214, 180, 0.58), rgba(242, 214, 180, 0));
+  bottom: -8px;
+  height: 244px;
+  right: -34px;
+  width: 244px;
 }
 
 .hero-art__card {
@@ -4161,15 +4786,16 @@ h1 {
   overflow: visible;
   padding: 0;
   position: relative;
+  transform: translateY(-17px);
 }
 
 .hero-lottie {
   animation: heroFloat 5.4s ease-in-out infinite;
   display: block;
-  height: min(360px, 68vw);
-  transform: scale(1.9);
+  height: min(380px, 68vw);
+  transform: scale(1.715) translateY(-4px);
   transform-origin: center;
-  width: min(340px, 100%);
+  width: min(360px, 100%);
 }
 
 .hero-lottie-fallback {
@@ -4198,12 +4824,211 @@ h1 {
   width: 130px;
 }
 
+.home-preview {
+  background: #ffffff;
+  margin-top: -42px;
+  padding: 0;
+}
+
+.home-preview-card {
+  width: 100%;
+  background: #fcf7f1;
+  border: 1px solid #e3d7c8;
+  border-bottom: 0;
+  border-radius: 0;
+  display: grid;
+  gap: 0;
+  grid-template-columns: 1.7fr minmax(240px, 0.78fr) minmax(280px, 0.92fr);
+  overflow: hidden;
+}
+
+.home-preview-pane {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 18px;
+}
+
+.home-preview-pane + .home-preview-pane {
+  border-left: 1px solid #e3d7c8;
+}
+
+.home-preview-pane__kicker {
+  color: #4b5563;
+  font-size: 0.73rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.home-preview-quote-stack {
+  display: block;
+  gap: 0;
+  margin: 0;
+}
+
+.home-preview-quote {
+  color: #1f2937;
+  font-size: 0.88rem;
+  line-height: 2;
+  margin: 0;
+}
+
+.home-preview-quote__line-break {
+  display: block;
+  height: 0.08em;
+}
+
+.home-preview-quote--lead {
+  margin-top: 12px;
+  padding-left: 18px;
+  position: relative;
+  z-index: 0;
+}
+
+.home-preview-quote--lead::before {
+  color: rgba(156, 163, 175, 0.2);
+  content: '"';
+  font-size: 118px;
+  left: -8px;
+  line-height: 1;
+  position: absolute;
+  top: -42px;
+  z-index: -1;
+}
+
+.home-preview-quote mark {
+  background: #f8e38c;
+  border-radius: 6px;
+  color: #111827;
+  margin: 0 2px;
+  padding: 1px 4px;
+}
+
+.home-preview-score-inline__gauge {
+  justify-items: center;
+  margin-top: 0;
+  overflow: visible;
+  padding-top: 6px;
+  width: 100%;
+}
+
+.home-preview-score-arc {
+  display: block;
+  height: auto;
+  max-width: 190px;
+  overflow: visible;
+  transform: translateY(-8px);
+  width: 100%;
+}
+
+.home-preview-score-arc__track {
+  fill: none;
+  stroke: #dfe5ef;
+  stroke-width: 11;
+}
+
+.home-preview-score-arc__progress {
+  fill: none;
+  stroke: #c5372f;
+  stroke-dasharray: 100 100;
+  stroke-dashoffset: 0;
+  stroke-linecap: round;
+  stroke-width: 11;
+}
+
+.home-preview-score-svg__text {
+  fill: #c5372f;
+}
+
+.home-preview-score-svg__value {
+  font-size: 52px;
+  font-weight: 800;
+  letter-spacing: -1.6px;
+}
+
+.home-preview-score-svg__unit {
+  fill: #6b7280;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.home-preview-score__label {
+  color: #c5372f;
+  font-size: 0.94rem;
+  font-weight: 700;
+  margin: -22px 0 0;
+}
+
+.home-preview-pane--score {
+  justify-items: center;
+}
+
+.home-preview-pane--message {
+  gap: 6px;
+}
+
+@media (min-width: 761px) {
+  .home-preview-pane--message .home-preview-quote-stack {
+    margin-top: 4px;
+  }
+}
+
+.home-preview-pane--action {
+  padding-top: 6px;
+}
+
+.home-preview-alert {
+  align-items: flex-start;
+  color: #374151;
+  display: grid;
+  font-size: 0.72rem;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr);
+  line-height: 1.48;
+  margin: -4px 0 0;
+}
+
+.home-preview-alert strong {
+  color: #c5372f;
+}
+
+.home-preview-alert__icon {
+  align-items: center;
+  background: #d0312d;
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 1.02rem;
+  font-weight: 900;
+  height: 30px;
+  justify-content: center;
+  line-height: 1;
+  width: 30px;
+}
+
+.home-preview-cta-btn {
+  align-self: start;
+  margin-top: -10px;
+  min-height: 50px;
+  padding: 12px 24px;
+}
+
+.home-preview-cta-btn:hover,
+.home-preview-cta-btn:focus-visible {
+  background: #152952;
+  border-color: #152952;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
 .stats-strip {
   background: #d0312d;
-  border-top: 4px solid #d0312d;
-  border-radius: 16px 16px 0 0;
+  border-top: 0;
+  border-radius: 0;
   color: #ffffff;
-  margin-top: 0;
+  margin-top: -12px;
   overflow: hidden;
   position: relative;
   z-index: 4;
@@ -4225,7 +5050,7 @@ h1 {
   gap: 12px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   padding-bottom: 22px;
-  padding-top: 22px;
+  padding-top: 32px;
   position: relative;
   z-index: 1;
 }
@@ -4236,8 +5061,9 @@ h1 {
   line-height: 1.5;
   margin: 8px auto 0;
   max-width: 1280px;
-  padding: 0 28px 14px;
+  padding: 0 28px 24px;
   position: relative;
+  text-align: center;
   word-break: break-word;
   z-index: 1;
 }
@@ -4272,250 +5098,206 @@ h1 {
 }
 
 .how-it-works {
-  background: #ffffff;
-  padding: 64px 0 64px;
-}
-
-.how-it-works > .container-shell {
-  background: #ffffff;
-  border: 1px solid #e3d7c8;
-  border-radius: 22px;
-  box-shadow: none;
-  padding: 28px 28px 24px;
-}
-
-.how-it-works .section-title {
-  color: #1b2e5e;
-}
-
-.how-it-works .section-title::after {
-  background: #d8a24a;
-}
-
-.how-workflow-panel {
   background: #fcf7f1;
-  border: 1px solid #e3d7c8;
-  border-radius: 16px;
-  margin-top: 16px;
-  padding: 18px 18px 16px;
+  border-top: 3px solid #d0312d;
+  margin-top: 36px;
+  padding: 28px 0 32px;
 }
 
-.how-grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  position: relative;
-}
-
-.how-copy {
-  color: #2b2b2b;
-  font-size: 0.98rem;
-  line-height: 1.6;
-  margin: 0 0 16px;
-  max-width: 62ch;
-}
-
-.how-copy__em {
-  font-weight: 800;
-}
-
-.how-copy__em--check {
-  color: #1b2e5e;
-}
-
-.how-copy__em--insights {
-  color: #3b6f8f;
-}
-
-.how-copy__em--learn {
-  color: #1b2e5e;
-}
-
-.how-copy__em--support {
-  color: #5a5a5a;
-}
-
-.how-grid__connector {
-  height: 10px;
-  left: 12%;
-  position: absolute;
-  right: 12%;
-  top: 27px;
-  width: 76%;
-  z-index: 0;
-}
-
-.how-grid__connector line {
-  animation: howDashFlow 2s linear infinite;
-  fill: none;
-  opacity: 0.35;
-  stroke: #3b6f8f;
-  stroke-dasharray: 6 8;
-  stroke-width: 2;
-}
-
-.how-grid__connector-base {
-  stroke: rgba(27, 46, 94, 0.26);
-  stroke-dasharray: 0;
-}
-
-.how-grid__connector-flow {
-  opacity: 1;
-  stroke: url(#howConnectorGradient);
-  stroke-dasharray: 100;
-  stroke-dashoffset: 100;
-  animation:
-    howConnectorDraw 1.25s cubic-bezier(0.22, 1, 0.36, 1) 220ms forwards,
-    howDashFlow 2.1s linear 1.35s infinite;
-}
-
-.how-step {
+.how-journey {
   background: transparent;
+  border: 0;
   border-radius: 0;
+  padding: 0;
+}
+
+.how-journey__kicker {
+  color: #1b2e5e;
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  margin: 0 0 16px;
+  text-transform: uppercase;
+}
+
+.how-journey__row {
+  align-items: center;
+  display: flex;
+  gap: 28px;
+  min-width: 0;
+}
+
+.how-journey__steps {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  gap: 26px;
+  list-style: none;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.how-journey-step {
+  background: transparent;
+  border-radius: 10px;
+  align-items: center;
   cursor: pointer;
+  display: flex;
+  flex: 1 1 0;
+  gap: 16px;
+  max-width: 320px;
+  min-width: 0;
   outline: none;
-  padding: 18px;
+  padding-right: 34px;
   position: relative;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
   z-index: 1;
 }
 
-/* Step 2: mustard accent on dark bg */
-.how-step--2 .how-step__number {
-  border-color: #d8a24a;
-  color: #d8a24a;
+.how-journey-step:last-child {
+  padding-right: 0;
 }
 
-/* Step 3: sage on dark bg */
-.how-step--3 .how-step__number {
-  border-color: #7a9a82;
-  color: #7a9a82;
+.how-journey-step:hover,
+.how-journey-step:focus-visible {
+  background: rgba(208, 49, 45, 0.04);
+  box-shadow: 0 8px 18px rgba(27, 46, 94, 0.08);
+  transform: translateY(-3px);
 }
 
-/* Step 4: Support — dark numeral on ivory panel */
-.how-step--4 .how-step__number {
-  background: #f4ede0;
-  border-color: #1b2e5e;
-  color: #1b2e5e;
-}
-
-.how-step__number {
+.how-journey-step__icon {
   align-items: center;
-  background: #fcf7f1;
-  border: 2px solid #e3d7c8;
+  border: 1px solid #dfe5f2;
   border-radius: 999px;
   color: #1b2e5e;
   display: inline-flex;
-  font-size: 16px;
-  font-weight: 800;
-  height: 42px;
+  flex: 0 0 auto;
+  height: 64px;
   justify-content: center;
-  line-height: 1;
-  margin: 0 0 12px;
-  transition:
-    background-color 0.2s ease,
-    color 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.2s ease;
-  width: 42px;
+  width: 64px;
 }
 
-.how-step:hover .how-step__number,
-.how-step:focus-within .how-step__number {
-  background: #f4ede0;
-  border-color: #3b6f8f;
+.how-journey-step--1 .how-journey-step__icon {
+  background: #ebf1fb;
+}
+
+.how-journey-step--2 .how-journey-step__icon {
+  background: #e8f5f3;
+  color: #0f7e75;
+}
+
+.how-journey-step--3 .how-journey-step__icon {
+  background: #fceee2;
+  color: #cc2b24;
+}
+
+.how-journey-step__copy {
+  min-width: 0;
+}
+
+.how-journey-step__title {
   color: #1b2e5e;
-  transform: scale(1.06);
+  font-size: 1.06rem;
+  font-weight: 650;
+  line-height: 1.2;
+  margin: 0 0 5px;
+  white-space: nowrap;
 }
 
-.how-step--2:hover .how-step__number,
-.how-step--2:focus-within .how-step__number {
-  background: #d8a24a;
-  border-color: #d8a24a;
-  color: #fcf7f1;
-}
-
-.how-step--3:hover .how-step__number,
-.how-step--3:focus-within .how-step__number {
-  background: #7a9a82;
-  border-color: #7a9a82;
-  color: #fcf7f1;
-}
-
-.how-step--4:hover .how-step__number,
-.how-step--4:focus-within .how-step__number {
-  background: #1b2e5e;
-  border-color: #1b2e5e;
-  color: #fcf7f1;
-}
-
-.how-step h3 {
-  color: #1b2e5e;
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0 0 10px;
-  transition: color 0.18s ease;
-}
-
-.how-step:hover h3,
-.how-step:focus-within h3 {
-  color: #3b6f8f;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.how-step p {
-  color: #2b2b2b;
-  font-size: 14px;
-  line-height: 1.45;
+.how-journey-step__desc {
+  color: #55627c;
+  font-size: 0.845rem;
+  line-height: 1.4;
   margin: 0;
+  max-width: 210px;
 }
 
-.how-step__hint {
-  color: #1b2e5e;
-  font-size: 0.76rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  margin-top: 8px;
-  opacity: 0.74;
+.how-journey-step__arrow {
+  align-items: center;
+  color: #8693ac;
+  display: inline-flex;
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
-.how-step__nav-hint {
-  color: #3b6f8f;
+.how-journey-step__arrow-icon {
   display: block;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  margin-top: 10px;
-  opacity: 0;
-  transition: opacity 0.2s ease;
 }
 
-.how-step:hover .how-step__nav-hint,
-.how-step:focus-within .how-step__nav-hint {
-  opacity: 1;
+.how-journey-cta {
+  border-left: 1px solid rgba(27, 46, 94, 0.18);
+  display: grid;
+  gap: 10px;
+  min-width: 260px;
+  padding-left: 32px;
+}
+
+.how-journey-cta__question {
+  color: #1b2e5e;
+  font-size: 1.24rem;
+  font-weight: 700;
+  line-height: 1.18;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.how-journey-cta__button {
+  background: #ffffff;
+  border: 1.6px solid #1b2e5e;
+  border-radius: 12px;
+  color: #1b2e5e;
+  min-height: 44px;
+  min-width: 0;
+  padding: 13px 28px;
+  width: fit-content;
+}
+
+.how-journey-cta__button:hover,
+.how-journey-cta__button:focus-visible {
+  background: rgba(27, 46, 94, 0.06);
+  border-color: #1b2e5e;
+  color: #1b2e5e;
+}
+
+.how-journey-cta__free {
+  align-items: center;
+  color: #6b7280;
+  display: inline-flex;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1.35;
+  margin: 0;
 }
 
 .info-grid {
   background: linear-gradient(180deg, #f4ede0 0%, #f4ede0 62%, rgba(244, 237, 224, 0.9) 100%);
   border-top: 1px solid #e3d7c8;
-  padding: 64px 0 64px;
+  padding: 52px 0 52px;
 }
 
 /* Column blocks: warm-sand editorial wrapper */
 .info-grid .info-block {
-  background: #fcf7f1;
-  border: 1px solid #e3d7c8;
-  border-radius: 18px;
-  box-shadow: 0 14px 28px rgba(27, 46, 94, 0.08);
-  padding: 24px 24px 22px;
+  background: #fdf9f3;
+  border: 1px solid #e8ddcf;
+  border-radius: 14px;
+  box-shadow: none;
+  padding: 18px 18px 16px;
   position: relative;
   overflow: hidden;
 }
 
 .info-grid .info-block::before {
-  background: linear-gradient(90deg, transparent, rgba(217, 164, 65, 0.34), transparent);
+  background: linear-gradient(90deg, transparent, rgba(27, 46, 94, 0.2), transparent);
   content: '';
-  height: 2px;
+  height: 1px;
   left: 12px;
   position: absolute;
   right: 12px;
@@ -4524,7 +5306,8 @@ h1 {
 
 .info-grid .section-title {
   color: #1b2e5e;
-  font-size: clamp(1.15rem, 2.2vw, 1.45rem);
+  font-size: clamp(1.06rem, 2vw, 1.28rem);
+  margin-bottom: 8px;
 }
 .info-grid .info-block--warning .section-title {
   border-left-color: #d0312d;
@@ -4540,42 +5323,38 @@ h1 {
 }
 
 .info-grid .info-summary {
-  color: #3b6f8f;
-  font-size: 0.87rem;
-  margin-bottom: 18px;
+  color: #5d6f8c;
+  font-size: 0.81rem;
+  margin-bottom: 10px;
+  line-height: 1.4;
 }
 
 /* Items: light ivory surface with thin accent border */
 .info-grid .info-rows {
-  gap: 10px;
+  gap: 8px;
 }
 
 .info-grid .resource-row {
   align-items: flex-start;
-  background: #fcf7f1;
-  border: 1px solid #e3d7c8;
-  border-bottom: 1px solid #e3d7c8;
-  border-left: 3px solid var(--strip-accent, #1b2e5e);
-  border-radius: 10px;
+  background: #fffdf9;
+  border: 1px solid #e9dfd2;
+  border-radius: 9px;
   display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(0, 1fr) 88px;
-  padding: 12px 14px;
+  gap: 10px;
+  grid-template-columns: 3px minmax(0, 1fr) 88px;
+  min-height: 96px;
+  padding: 10px 12px;
   position: relative;
   transition:
-    transform 0.22s ease,
-    box-shadow 0.22s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
     border-color 0.22s ease,
-    background 0.22s ease;
+    background 0.18s ease;
+  text-decoration: none;
 }
 
 .info-grid .resource-row::after {
-  background: linear-gradient(
-    100deg,
-    rgba(216, 162, 74, 0),
-    rgba(216, 162, 74, 0.26),
-    rgba(139, 111, 246, 0.18)
-  );
+  background: linear-gradient(90deg, rgba(27, 46, 94, 0), rgba(27, 46, 94, 0.04), rgba(27, 46, 94, 0));
   content: '';
   inset: 0;
   opacity: 0;
@@ -4587,9 +5366,9 @@ h1 {
 .info-grid .resource-row:hover,
 .info-grid .resource-row:focus-visible {
   background: #ffffff;
-  border-color: rgba(27, 46, 94, 0.22);
-  box-shadow: 0 10px 22px rgba(27, 46, 94, 0.12);
-  transform: translateY(-4px);
+  border-color: rgba(27, 46, 94, 0.26);
+  box-shadow: 0 7px 16px rgba(27, 46, 94, 0.08);
+  transform: translateY(-2px);
 }
 
 .info-grid .resource-row:hover::after,
@@ -4597,40 +5376,82 @@ h1 {
   opacity: 1;
 }
 
-/* Hide old left accent strip */
 .info-grid .resource-accent {
-  display: none;
+  background: var(--strip-accent, #d0312d);
+  border-radius: 999px;
+  display: inline-flex;
+  height: calc(100% - 6px);
+  margin-top: 3px;
+  min-height: 72px;
 }
 
-.info-grid .resource-title {
-  color: #1b2e5e;
-  font-size: 0.93rem;
-  font-weight: 700;
+.info-grid .resource-main {
+  align-self: center;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
 }
 
-.info-grid .resource-copy {
-  color: #2b2b2b;
-  font-size: 0.81rem;
+.info-grid .resource-tag {
+  align-self: flex-start;
+  border-radius: 999px;
+  color: #315f9e;
+  display: inline-flex;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  padding: 4px 8px;
+  text-transform: uppercase;
+  background: #eaf1fb;
+  border: 1px solid #d7e2f4;
+  width: fit-content;
 }
 
-.info-grid .resource-source {
-  background: transparent;
-  border: 1px solid #e3d7c8;
+.info-grid .info-block--safe .resource-tag {
+  background: #edf5ff;
+  border-color: #d9e7f9;
   color: #3b6f8f;
 }
 
+.info-grid .resource-title {
+  color: #122952;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.info-grid .resource-copy {
+  color: #68758a;
+  font-size: 0.78rem;
+  line-height: 1.42;
+}
+
+.info-grid .resource-source {
+  background: #f7f3ec;
+  border: 1px solid #e7ddcf;
+  color: #7b8597;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+}
+
 .info-grid .resource-media {
+  border-radius: 8px;
+  height: 66px;
+  overflow: hidden;
+  width: 88px;
   transition: transform 0.24s ease;
 }
 
 .info-grid .resource-row:hover .resource-media,
 .info-grid .resource-row:focus-visible .resource-media {
-  transform: translateY(-2px) scale(1.04);
+  transform: translateY(-1px) scale(1.02);
 }
 
 .info-grid .info-block--safe .resource-source {
-  border-color: #e3d7c8;
-  color: #3b6f8f;
+  border-color: #d8e4f7;
+  color: #5478a2;
 }
 
 /* Quick tips: red accent */
@@ -4675,7 +5496,7 @@ h1 {
 .info-grid__inner {
   align-items: start;
   display: grid;
-  gap: 20px;
+  gap: 16px;
   grid-template-columns: 1fr 1fr;
   padding-bottom: 0;
 }
@@ -4846,7 +5667,7 @@ h1 {
   scroll-margin-top: 112px;
 }
 
-/* Legacy snap-stage hooks kept inert — editorial motion uses reveal-on-scroll only */
+/* Legacy snap-stage hooks kept inert; editorial motion uses reveal-on-scroll only */
 .snap-stage::before,
 .snap-stage::after {
   display: none;
@@ -4866,74 +5687,6 @@ h1 {
 
 .flow-section--check::before {
   display: none;
-}
-
-.scan-console-shell {
-  align-items: center;
-  background: linear-gradient(
-    110deg,
-    rgba(11, 25, 58, 0.96) 0%,
-    rgba(26, 54, 106, 0.96) 56%,
-    rgba(15, 159, 143, 0.84) 100%
-  );
-  border: 1px solid rgba(252, 247, 241, 0.22);
-  border-radius: 14px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 16px 28px rgba(15, 23, 42, 0.25);
-  color: #fcf7f1;
-  display: grid;
-  gap: 10px;
-  grid-template-columns: auto 1fr;
-  margin: 0 0 16px;
-  padding: 12px 14px;
-}
-
-.scan-console-shell__kicker {
-  color: rgba(252, 247, 241, 0.78);
-  font-size: 0.64rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  margin: 0;
-  text-transform: uppercase;
-}
-
-.scan-console-shell__line {
-  align-items: center;
-  animation: scannerLinePulse 0.38s ease;
-  display: inline-flex;
-  gap: 9px;
-  font-size: 0.86rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-}
-
-.scan-console-shell__dot {
-  animation: scannerDotBlink 1.3s ease-in-out infinite;
-  background: #d9a441;
-  border-radius: 999px;
-  box-shadow: 0 0 0 0 rgba(217, 164, 65, 0.55);
-  display: inline-flex;
-  height: 9px;
-  width: 9px;
-}
-
-.scan-console-shell__meter {
-  background: rgba(252, 247, 241, 0.2);
-  border-radius: 999px;
-  grid-column: 1 / -1;
-  height: 5px;
-  overflow: hidden;
-  position: relative;
-}
-
-.scan-console-shell__meter-bar {
-  animation: scannerMeterSweep 2.4s ease-in-out infinite;
-  background: linear-gradient(90deg, #d9a441, #0f9f8f 58%, #8b6ff6);
-  border-radius: inherit;
-  display: block;
-  height: 100%;
-  width: 46%;
 }
 
 .preview-band {
@@ -4979,20 +5732,6 @@ h1 {
 
 .panel {
   padding: 44px 0;
-}
-
-.section-fade--insights {
-  background: linear-gradient(180deg, #f8fbfd 0%, #fcf7f1 100%);
-}
-
-.panel.section-fade--insights {
-  padding-top: 64px;
-}
-
-@media (max-width: 767px) {
-  .panel.section-fade--insights {
-    padding-top: 20px;
-  }
 }
 
 .section-fade--learn {
@@ -5111,7 +5850,9 @@ h1 {
   color: #6b7280;
   line-height: 1.55;
   margin: 0;
-  max-width: 760px;
+  max-width: none;
+  text-wrap: pretty;
+  white-space: nowrap;
 }
 
 .support-editor-grid {
@@ -5435,7 +6176,7 @@ h1 {
   border-radius: 10px;
   display: grid;
   gap: 10px;
-  max-height: 400px;
+  max-height: 320px;
   overflow: auto;
   padding: 12px;
 }
@@ -5507,6 +6248,58 @@ h1 {
   color: #d0312d;
 }
 
+.support-chat-form {
+  display: grid;
+  gap: 10px;
+}
+
+.support-chat-form__label {
+  color: #6b7280;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.support-chat-form__input {
+  background: #ffffff;
+  border: 1px solid #e5e2dc;
+  border-radius: 10px;
+  color: #1a1a2a;
+  font: inherit;
+  line-height: 1.5;
+  min-height: 96px;
+  padding: 12px 14px;
+  resize: vertical;
+}
+
+.support-chat-form__input:focus {
+  border-color: #1f2d6b;
+  outline: 2px solid rgba(31, 45, 107, 0.12);
+  outline-offset: 0;
+}
+
+.support-chat-form__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.support-chat-form__button {
+  background: #1f2d6b;
+  border: 0;
+  border-radius: 10px;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  min-height: 42px;
+  padding: 10px 18px;
+}
+
+.support-chat-form__button:hover,
+.support-chat-form__button:focus-visible {
+  background: #182354;
+}
+
 .support-links-panel {
   border: 1px solid #e5e2dc;
   border-radius: 10px;
@@ -5535,7 +6328,7 @@ h1 {
   color: #6b7280 !important;
 }
 
-/* ── Pre-footer CTA band ───────────────────────────────── */
+/* Pre-footer CTA band */
 .cta-band {
   background: #1b2e5e;
   padding: 72px 0;
@@ -5625,7 +6418,7 @@ h1 {
   transform: translateY(-2px);
 }
 
-/* ─────────────────────────────────────────────────────── */
+/* Footer */
 
 .site-footer {
   background: #0f1e3d;
@@ -5741,7 +6534,7 @@ h1 {
   border: 0;
   border-radius: 0;
   display: block;
-  height: 46px;
+  height: 138px;
   object-fit: contain;
   width: auto;
 }
@@ -5937,66 +6730,27 @@ h1 {
 @keyframes heroFloat {
   0%,
   100% {
-    transform: scale(1.9) translateY(0px);
+    transform: scale(1.715) translateY(-6px);
   }
 
   50% {
-    transform: scale(1.9) translateY(-10px);
+    transform: scale(1.715) translateY(-12px);
   }
 }
 
 @keyframes howDashFlow {
   from {
-    stroke-dashoffset: 0;
+    transform: translateX(0);
   }
 
   to {
-    stroke-dashoffset: -56;
+    transform: translateX(-18px);
   }
 }
 
 @keyframes howConnectorDraw {
   to {
     stroke-dashoffset: 0;
-  }
-}
-
-@keyframes scannerDotBlink {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(217, 164, 65, 0.55);
-    opacity: 0.72;
-  }
-
-  55% {
-    box-shadow: 0 0 0 6px rgba(217, 164, 65, 0);
-    opacity: 1;
-  }
-}
-
-@keyframes scannerMeterSweep {
-  0% {
-    transform: translateX(-58%);
-  }
-
-  50% {
-    transform: translateX(108%);
-  }
-
-  100% {
-    transform: translateX(-58%);
-  }
-}
-
-@keyframes scannerLinePulse {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -6081,27 +6835,105 @@ h1 {
     font-size: 32px;
   }
 
-  /* Reduce vertical padding on tall sections when narrow */
+  .learn-head-summary,
+  .support-head__summary {
+    white-space: normal;
+  }
+
   .how-it-works {
-    padding: 48px 0;
+    padding: 24px 0 26px;
+  }
+
+  .home-preview {
+    padding-bottom: 0;
+  }
+
+  .home-preview-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-preview-pane + .home-preview-pane {
+    border-left: 0;
+    border-top: 1px solid #e3d7c8;
+  }
+
+  .home-preview-pane--score {
+    justify-items: flex-start;
+  }
+
+  .home-preview-quote {
+    font-size: 0.92rem;
+    line-height: 1.5;
+  }
+
+  .home-preview-score-arc {
+    max-width: 176px;
+  }
+
+  .home-preview-score-svg__value {
+    font-size: 44px;
+  }
+
+  .home-preview-score-svg__unit {
+    font-size: 20px;
   }
 
   .info-grid {
     padding: 44px 0 40px;
   }
 
-  /* How-it-works grid: reduce columns on medium screens */
-  .how-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .how-journey__row {
+    gap: 18px;
+  }
+
+  .how-journey__steps {
     gap: 20px;
   }
 
+  .how-journey-step {
+    gap: 12px;
+    max-width: none;
+    padding-right: 26px;
+  }
+
+  .how-journey-step__icon {
+    height: 58px;
+    width: 58px;
+  }
+
+  .how-journey-step__title {
+    font-size: 0.99rem;
+  }
+
+  .how-journey-step__desc {
+    font-size: 0.8rem;
+    max-width: 180px;
+  }
+
+  .how-journey-step__arrow {
+    right: 0;
+  }
+
+  .how-journey-cta {
+    min-width: 220px;
+    padding-left: 20px;
+  }
+
+  .how-journey-cta__question {
+    font-size: 1.02rem;
+  }
+
+  .how-journey-cta__button {
+    min-height: 40px;
+    padding: 10px 18px;
+  }
+
   .top-strip {
-    padding: 8px 14px;
+    padding: 1px 10px 0;
   }
 
   .top-strip__inner {
-    border-radius: 20px;
+    border-radius: 10px;
     max-width: 100%;
     min-height: 35px;
     padding: 4px 14px;
@@ -6135,6 +6967,15 @@ h1 {
     grid-template-columns: 1fr;
   }
 
+  .learn-hero {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .learn-entry__layout {
+    grid-template-columns: 1fr;
+  }
+
   .preview-band__inner {
     grid-template-columns: 1fr;
   }
@@ -6163,17 +7004,12 @@ h1 {
   }
 
   .stats-strip__inner,
-  .how-grid,
   .preview-placeholder__grid {
     grid-template-columns: 1fr;
   }
 
   .stats-strip__source {
-    padding: 0 24px;
-  }
-
-  .how-grid__connector {
-    display: none;
+    padding: 0 24px 22px;
   }
 
   .stat-tile {
@@ -6190,6 +7026,10 @@ h1 {
 }
 
 @media (max-width: 760px) {
+  :global(html) {
+    font-size: 15px;
+  }
+
   :global(html),
   :global(body) {
     scroll-snap-type: none;
@@ -6209,7 +7049,7 @@ h1 {
   }
 
   .top-strip {
-    padding: 8px 10px;
+    padding: 1px 8px 0;
   }
 
   .top-strip__inner {
@@ -6222,9 +7062,13 @@ h1 {
     inset: calc(100% + 4px) 16px auto;
   }
 
+  .stats-strip__inner {
+    padding-top: 34px;
+  }
+
   .stats-strip__source {
-    font-size: 0.74rem;
-    padding: 0 16px;
+    font-size: 0.68rem;
+    padding: 0 16px 20px;
   }
 
   .menu-link,
@@ -6253,17 +7097,143 @@ h1 {
   }
 
   .how-it-works {
-    padding: 36px 0;
+    padding: 22px 0 24px;
+  }
+
+  .learn-entry {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .learn-entry__top {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .learn-entry h4 {
+    font-size: 1.02rem;
+  }
+
+  .learn-entry__mission-subline,
+  .learn-mission-row__title,
+  .learn-mission-preview__note {
+    font-size: 0.8rem;
+  }
+
+  .learn-entry__actions {
+    flex-direction: column;
+  }
+
+  .learn-primary,
+  .learn-secondary {
+    width: 100%;
+  }
+
+  .home-preview-pane {
+    align-content: start;
+    min-height: 142px;
+    padding: 12px 14px;
+  }
+
+  .home-preview-quote {
+    font-size: 0.69rem;
+    line-height: 1.65;
+  }
+
+  .home-preview-quote--lead {
+    margin-top: 18px;
+  }
+
+  .home-preview-pane--score {
+    gap: 6px;
+  }
+
+  .home-preview-score-arc {
+    max-width: 146px;
+    transform: translateY(-2px);
+  }
+
+  .home-preview-score-svg__value {
+    font-size: 34px;
+  }
+
+  .home-preview-score-svg__unit {
+    font-size: 16px;
+  }
+
+  .home-preview-score__label {
+    margin-top: -8px;
+  }
+
+  .home-preview-alert {
+    font-size: 0.69rem;
+  }
+
+  .home-preview-cta-btn {
+    margin-top: 8px;
+    min-height: 42px;
+    width: 100%;
   }
 
   .info-grid {
     padding: 36px 0 32px;
   }
 
-  /* how-grid: 1 column on very narrow */
-  .how-grid {
+  .how-journey__row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .how-journey__steps {
+    display: grid;
+    gap: 10px;
     grid-template-columns: 1fr;
-    gap: 16px;
+    padding: 0;
+    width: 100%;
+  }
+
+  .how-journey-step {
+    gap: 10px;
+    max-width: none;
+    padding-right: 0;
+  }
+
+  .how-journey-step__icon {
+    height: 50px;
+    width: 50px;
+  }
+
+  .how-journey-step__title {
+    font-size: 0.98rem;
+  }
+
+  .how-journey-step__desc {
+    font-size: 0.79rem;
+    max-width: none;
+  }
+
+  .how-journey-step__arrow {
+    display: none;
+  }
+
+  .how-journey-cta {
+    border-left: 0;
+    border-top: 1px solid rgba(27, 46, 94, 0.18);
+    min-width: 0;
+    padding-left: 0;
+    padding-top: 10px;
+    width: 100%;
+  }
+
+  .how-journey-cta__question {
+    font-size: 1.04rem;
+  }
+
+  .how-journey-cta__button {
+    min-width: 0;
+    width: auto;
   }
 
   .site-footer__links {
@@ -6296,6 +7266,7 @@ h1 {
 
   .support-mode-button,
   .support-chat-prompt,
+  .support-chat-form__button,
   .support-choice-button,
   .support-guidance-box__link {
     font-size: 0.9rem;
@@ -6344,10 +7315,23 @@ h1 {
     flex-direction: row;
     gap: 10px;
     grid-template-columns: unset;
-    max-height: 110px;
+    max-height: none;
     min-height: 84px;
     padding: 8px 10px;
     transform: none;
+  }
+
+  .info-grid .resource-main {
+    align-self: flex-start;
+    gap: 4px;
+  }
+
+  .info-grid .resource-tag {
+    align-self: flex-start;
+    font-size: 0.56rem;
+    margin: 0 0 2px;
+    padding: 3px 7px;
+    position: static;
   }
 
   .info-grid .resource-row:hover,
@@ -6404,7 +7388,7 @@ h1 {
   }
 }
 
-/* ── 480px and below: compact mobile ── */
+/* 480px and below: compact mobile */
 @media (max-width: 480px) {
   .container-shell {
     padding: 0 16px;
@@ -6428,6 +7412,64 @@ h1 {
 
   .how-it-works {
     padding: 28px 0;
+  }
+
+  .stats-strip__inner {
+    padding-top: 34px;
+  }
+
+  .home-preview {
+    padding-bottom: 0;
+  }
+
+  .home-preview-pane__kicker {
+    font-size: 0.64rem;
+  }
+
+  .home-preview-quote {
+    font-size: 0.66rem;
+    line-height: 1.6;
+  }
+
+  .home-preview-pane {
+    min-height: 138px;
+    padding: 11px 12px;
+  }
+
+  .home-preview-quote__line-break {
+    height: 0.08em;
+  }
+
+  .home-preview-quote--lead::before {
+    font-size: 102px;
+    left: -4px;
+    top: -30px;
+  }
+
+  .home-preview-score-svg__value {
+    font-size: 32px;
+  }
+
+  .home-preview-score-svg__unit {
+    font-size: 15px;
+  }
+
+  .home-preview-score-arc {
+    max-width: 138px;
+  }
+
+  .home-preview-score__label {
+    margin-top: -6px;
+  }
+
+  .home-preview-cta-btn {
+    min-height: 44px;
+    padding: 10px 16px;
+  }
+
+  .stats-strip__source {
+    font-size: 0.62rem;
+    padding: 0 14px 18px;
   }
 
   .info-grid {
@@ -6515,31 +7557,33 @@ h1 {
     top: -28px;
   }
 
-  /* How it works compact */
-  .how-step {
-    padding: 12px 10px;
+  .how-journey {
+    padding: 0;
   }
 
-  .how-step h3 {
-    margin-bottom: 4px;
-    font-size: 1rem;
+  .how-journey-step {
+    gap: 8px;
+    grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .how-step p {
-    font-size: 0.82rem;
-    line-height: 1.4;
-    margin: 0;
+  .how-journey-step__icon {
+    height: 48px;
+    width: 48px;
   }
 
-  .how-step__number {
-    width: 38px;
-    height: 38px;
-    font-size: 1rem;
-    margin-bottom: 8px;
+  .how-journey-step__title {
+    font-size: 0.94rem;
+    margin-bottom: 3px;
   }
 
-  .how-grid {
-    gap: 12px;
+  .how-journey-step__desc {
+    font-size: 0.75rem;
+    line-height: 1.34;
+  }
+
+  .how-journey-cta__button {
+    min-height: 40px;
+    padding: 8px 14px;
   }
 
   /* Navigation compact */
@@ -6567,10 +7611,55 @@ h1 {
   }
 }
 
-/* ── 375px: smallest supported width ── */
-@media (max-width: 375px) {
+@media (max-width: 400px) {
   .container-shell {
-    padding: 0 12px;
+    padding: 0 14px;
+  }
+
+  .top-strip__inner {
+    width: calc(100% - 28px);
+  }
+
+  .hero-band__inner,
+  .info-grid__inner,
+  .support-editor-grid,
+  .learn-flow {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+/* 375px: smallest supported width */
+@media (max-width: 375px) {
+  :global(html) {
+    font-size: 14px;
+  }
+
+  .container-shell {
+    padding: 0 14px;
+  }
+
+  .page-shell,
+  .flow-wrapper,
+  .scene-panel,
+  .container-shell,
+  .top-strip,
+  .top-strip__inner {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .hero-title-kinetic,
+  .how-journey-step__desc,
+  .learn-head-summary,
+  .support-head__summary,
+  .resource-title,
+  .resource-copy,
+  .cta-band__title,
+  .cta-band__sub {
+    overflow-wrap: anywhere;
+    white-space: normal;
+    word-break: break-word;
   }
 
   h1 {
@@ -6644,3 +7733,4 @@ h1 {
   }
 }
 </style>
+

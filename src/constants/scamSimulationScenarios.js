@@ -232,7 +232,7 @@ export const SCAM_SIMULATION_SCENARIOS = {
       'Hey — I’m Alex, 21, from Melbourne. I’m the kind of person scammers target, and I’ll guide this like a practical friend chat.',
     introAlex: [
       'Hey — I’m Alex, 21, from Melbourne. Uni by day, café shifts on weekends.',
-      'I’m not a lawyer or cop. I’m exactly the kind of person these scammers target.',
+      'I’m not a lawyer or police officer. I’m exactly the kind of person these scammers target.',
       'I’ve seen classmates lose money to “easy task jobs”, so I started collecting scam scripts.',
       'I’ll guide this like a friend-to-friend chat: practical, fast, zero jargon.',
       'If you can spot what I spot, you can protect yourself earlier than I did.',

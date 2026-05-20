@@ -1,5 +1,17 @@
 import rawCsv from '../datasets/iteration2_dataset.csv?raw'
 
+export const SCAM_TYPE_DISPLAY_CONFIG = [
+  { key: 'financial fraud', label: 'Financial Fraud' },
+  { key: 'identity theft', label: 'Identity Theft' },
+  { key: 'investment', label: 'Investment' },
+  { key: 'phishing', label: 'Phishing' },
+  { key: 'task-based scam', label: 'Task-based Scam' },
+]
+
+const SCAM_TYPE_DISPLAY_MAP = new Map(
+  SCAM_TYPE_DISPLAY_CONFIG.map((entry) => [entry.key.toLowerCase(), entry.label]),
+)
+
 function parseCsv(raw) {
   const [headerLine, ...lines] = raw.trim().split(/\r?\n/)
   const headers = headerLine.split(',').map((item) => item.trim())
@@ -24,10 +36,41 @@ function parseCsv(raw) {
 
 const dataset = parseCsv(rawCsv)
 
+export function getScamTypeLabel(scamType) {
+  const normalized = String(scamType || '').trim().toLowerCase()
+  if (!normalized) return ''
+
+  if (SCAM_TYPE_DISPLAY_MAP.has(normalized)) {
+    return SCAM_TYPE_DISPLAY_MAP.get(normalized)
+  }
+
+  return normalized.replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+export function getScamTypeOptions() {
+  const availableTypes = new Set(
+    dataset
+      .map((row) => String(row.scam_type || '').trim().toLowerCase())
+      .filter(Boolean),
+  )
+
+  const ordered = SCAM_TYPE_DISPLAY_CONFIG.filter((entry) => availableTypes.has(entry.key)).map(
+    (entry) => ({
+      value: entry.key,
+      label: entry.label,
+    }),
+  )
+
+  const leftovers = [...availableTypes]
+    .filter((value) => !SCAM_TYPE_DISPLAY_MAP.has(value))
+    .sort((a, b) => a.localeCompare(b))
+    .map((value) => ({ value, label: getScamTypeLabel(value) }))
+
+  return [...ordered, ...leftovers]
+}
+
 export function getScamTypes() {
-  return [...new Set(dataset.map((row) => row.scam_type))]
-    .filter(Boolean)
-    .sort()
+  return getScamTypeOptions().map((option) => option.value)
 }
 
 export function getTimePeriod(records = dataset) {

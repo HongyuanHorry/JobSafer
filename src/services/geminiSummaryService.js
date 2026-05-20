@@ -11,15 +11,15 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 const GEMINI_COACH_ENDPOINT = `${API_BASE}/api/gemini/coach-summary`
 
 const MAX_CHARS = {
-  summary: 400,
-  topRisk: 180,
-  nextAction: 180,
+  summary: 220,
+  topRisk: 120,
+  nextAction: 120,
   hesitationInsight: 180,
   tone: 40,
 }
 
-const MAX_SUMMARY_WORDS = 72
-const MAX_HISTORY_ROWS = 5
+const MAX_SUMMARY_WORDS = 34
+const MAX_HISTORY_ROWS = 4
 
 const NON_LATIN_SCRIPTS =
   /[\u0370-\u03FF\u0400-\u04FF\u0600-\u06FF\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]/u
@@ -35,6 +35,7 @@ const UNSAFE_PATTERNS = [
   /\bgift\s*card\b/i,
   /\b(venmo|zelle|cash\s*app|paypal\s*friends\s*family|wechat\s*pay|alipay)\b/i,
   /\b(otp|one[- ]?time\s*code|2fa|verification\s*code)\b.*\b(share|tell|provide|give|screenshot)\b/i,
+  /[�鈥]/,
 ]
 
 function classifyGeminiFailure(httpStatus, backendMessage) {

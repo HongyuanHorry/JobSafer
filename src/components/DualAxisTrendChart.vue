@@ -10,7 +10,7 @@ import {
   Title,
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { formatMoney, formatNumber } from '../utils/chartFormatters.js'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Title)
@@ -30,6 +30,35 @@ const props = defineProps({
   },
 })
 
+const isCompactViewport = ref(false)
+const isTinyViewport = ref(false)
+
+function syncViewport() {
+  if (typeof window === 'undefined') return
+  isCompactViewport.value = window.innerWidth <= 520
+  isTinyViewport.value = window.innerWidth <= 420
+}
+
+function formatCompactAxisNumber(value) {
+  const num = Number(value || 0)
+  if (Math.abs(num) >= 1000000) return `${Math.round(num / 1000000)}M`
+  if (Math.abs(num) >= 1000) return `${Math.round(num / 1000)}K`
+  return formatNumber(num)
+}
+
+onMounted(() => {
+  syncViewport()
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', syncViewport, { passive: true })
+  }
+})
+
+onBeforeUnmount(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', syncViewport)
+  }
+})
+
 const chartData = computed(() => ({
   labels: props.trendData.map((row) => row.year),
   datasets: [
@@ -41,8 +70,8 @@ const chartData = computed(() => ({
       backgroundColor: 'rgba(31, 45, 107, 0.12)',
       pointBackgroundColor: '#1f2d6b',
       pointBorderColor: '#1f2d6b',
-      pointRadius: 4,
-      pointHoverRadius: 6,
+      pointRadius: isTinyViewport.value ? 2 : isCompactViewport.value ? 2.5 : 4,
+      pointHoverRadius: isTinyViewport.value ? 3.5 : isCompactViewport.value ? 4 : 6,
       borderWidth: 3,
       tension: 0.35,
     },
@@ -54,8 +83,8 @@ const chartData = computed(() => ({
       backgroundColor: 'rgba(208, 49, 45, 0.12)',
       pointBackgroundColor: '#d0312d',
       pointBorderColor: '#d0312d',
-      pointRadius: 4,
-      pointHoverRadius: 6,
+      pointRadius: isTinyViewport.value ? 2 : isCompactViewport.value ? 2.5 : 4,
+      pointHoverRadius: isTinyViewport.value ? 3.5 : isCompactViewport.value ? 4 : 6,
       borderWidth: 3,
       tension: 0.35,
     },
@@ -109,7 +138,12 @@ function getRoundedLossRange(values) {
 const reportAxisRange = computed(() => getRoundedReportRange(reportValues.value))
 const lossAxisRange = computed(() => getRoundedLossRange(lossValues.value))
 
-const chartOptions = computed(() => ({
+const chartOptions = computed(() => {
+  const axisTickSize = isTinyViewport.value ? 8 : isCompactViewport.value ? 9 : 12
+  const axisTitleSize = isTinyViewport.value ? 9 : isCompactViewport.value ? 10 : 12
+  const legendSize = isTinyViewport.value ? 8 : isCompactViewport.value ? 10 : 12
+
+  return {
   responsive: true,
   maintainAspectRatio: false,
   interaction: {
@@ -125,12 +159,14 @@ const chartOptions = computed(() => ({
       position: 'top',
       labels: {
         usePointStyle: true,
-        boxWidth: 10,
+        boxWidth: isCompactViewport.value ? 8 : 10,
         color: '#1a1a2a',
         font: {
           family: 'Plus Jakarta Sans',
           weight: '700',
+          size: legendSize,
         },
+        padding: isTinyViewport.value ? 8 : isCompactViewport.value ? 10 : 16,
       },
     },
     tooltip: {
@@ -154,13 +190,19 @@ const chartOptions = computed(() => ({
         font: {
           family: 'Plus Jakarta Sans',
           weight: '800',
+          size: axisTitleSize,
         },
       },
       ticks: {
         color: '#6b7280',
+        maxRotation: 0,
+        minRotation: 0,
+        autoSkip: true,
+        maxTicksLimit: isTinyViewport.value ? 4 : isCompactViewport.value ? 5 : 8,
         font: {
           family: 'Plus Jakarta Sans',
           weight: '700',
+          size: axisTickSize,
         },
       },
       grid: {
@@ -179,12 +221,17 @@ const chartOptions = computed(() => ({
         font: {
           family: 'Plus Jakarta Sans',
           weight: '800',
+          size: axisTitleSize,
         },
       },
       ticks: {
         color: '#1f2d6b',
+        maxTicksLimit: isTinyViewport.value ? 3 : isCompactViewport.value ? 4 : 6,
+        font: {
+          size: axisTickSize,
+        },
         callback(value) {
-          return formatNumber(value)
+          return isCompactViewport.value ? formatCompactAxisNumber(value) : formatNumber(value)
         },
       },
       grid: {
@@ -203,10 +250,15 @@ const chartOptions = computed(() => ({
         font: {
           family: 'Plus Jakarta Sans',
           weight: '800',
+          size: axisTitleSize,
         },
       },
       ticks: {
         color: '#d0312d',
+        maxTicksLimit: isTinyViewport.value ? 3 : isCompactViewport.value ? 4 : 6,
+        font: {
+          size: axisTickSize,
+        },
         callback(value) {
           if (value >= 1000000) return `$${value / 1000000}M`
           if (value >= 1000) return `$${value / 1000}K`
@@ -218,7 +270,8 @@ const chartOptions = computed(() => ({
       },
     },
   },
-}))
+  }
+})
 </script>
 
 <template>
