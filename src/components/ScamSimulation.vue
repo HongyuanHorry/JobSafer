@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <section class="sim" :class="{ 'sim--fullscreen': isFullscreen }" aria-live="polite" ref="simRef">
     <Transition name="fs-overlay">
       <div v-if="isTransitioning" class="fs-transition-overlay" aria-hidden="true">
@@ -12,17 +12,15 @@
       <button class="fullscreen-bar__exit" type="button" @click="exitFullscreen">Exit</button>
     </div>
     <div class="sim-wrapper">
-      <Transition name="sim-shell-fade" mode="out-in">
-        <article
-          :key="`stage-${stage}`"
-          class="sim-card"
-          :class="{
-            'sim-card--split-thirds': stage === 0,
-            'sim-card--intro': stage === 0,
-            'sim-card--walkthrough': stage >= 1 && stage <= 5,
-            'sim-card--finale': stage > 5,
-          }"
-        >
+      <article
+        class="sim-card"
+        :class="{
+          'sim-card--split-thirds': stage === 0,
+          'sim-card--intro': stage === 0,
+          'sim-card--walkthrough': stage >= 1 && stage <= 5,
+          'sim-card--finale': stage > 5,
+        }"
+      >
           <template v-if="stage === 0">
             <div class="sim-visual intro-visual">
               <div class="scene-image-wrap">
@@ -94,7 +92,17 @@
           </template>
 
           <template v-else-if="stage <= 5">
-            <div class="sim-visual sim-visual--walkthrough">
+            <header class="walkthrough-canvas-head" aria-label="Scenario stage header">
+              <div class="walkthrough-canvas-head__top">
+                <p class="walkthrough-canvas-head__scenario">{{ scenario.title }}</p>
+                <p class="walkthrough-canvas-head__stage">Stage {{ stageLabel }} of 5</p>
+              </div>
+              <div class="walkthrough-canvas-head__bar" role="presentation">
+                <span :style="{ width: `${stageProgressPercent}%` }"></span>
+              </div>
+            </header>
+
+            <div class="sim-visual sim-visual--walkthrough local-pane-fade" :key="`scene-pane-${stage}`">
               <article class="scene-card scene-card--walkthrough" aria-label="Scam scene">
                 <section class="wt-block wt-block--scene" aria-label="Scene illustration">
                   <p class="wt-label">Scene</p>
@@ -146,7 +154,8 @@
             </div>
 
             <div
-              class="sim-copy sim-copy--scene"
+              class="sim-copy sim-copy--scene local-pane-fade"
+              :key="`decision-pane-${stage}`"
               :class="{ 'sim-copy--danger': picked === 'risk' }"
             >
               <div class="wt-stage-mobile-stack">
@@ -288,20 +297,26 @@
               <div class="choices choices--scene" aria-label="Decision options">
                 <button
                   class="choice"
-                  :class="optionStateClass('safe')"
+                  :class="[optionStateClass('safe'), 'choice--safe']"
                   type="button"
                   :disabled="Boolean(picked)"
                   @click="pick('safe')"
                 >
+                  <span class="choice-icon" aria-hidden="true">
+                    <ShieldCheck :size="16" />
+                  </span>
                   <span class="choice-title">{{ scenario.stages[stage - 1].safeOption }}</span>
                 </button>
                 <button
                   class="choice"
-                  :class="optionStateClass('risk')"
+                  :class="[optionStateClass('risk'), 'choice--risk']"
                   type="button"
                   :disabled="Boolean(picked)"
                   @click="pick('risk')"
                 >
+                  <span class="choice-icon" aria-hidden="true">
+                    <Lock :size="16" />
+                  </span>
                   <span class="choice-title">{{ scenario.stages[stage - 1].riskOption }}</span>
                 </button>
               </div>
@@ -347,26 +362,16 @@
                   />
                 </figure>
                 <div class="finale-celebration__copy">
-                  <p class="finale-celebration__eyebrow">{{ finaleCelebrationEyebrow }}</p>
+                  <p class="finale-celebration__eyebrow">
+                    <span class="finale-celebration__eyebrow-icon" aria-hidden="true">
+                      <ShieldCheck :size="14" />
+                    </span>
+                    <span>{{ finaleCelebrationEyebrow }}</span>
+                  </p>
                   <h4 class="final-outcome-heading">{{ finalOutcomeTitle }}</h4>
                   <p v-if="finalOutcomeMessage" class="finale-celebration__message">
                     {{ finalOutcomeMessage }}
                   </p>
-                  <div class="finale-outcome-tags" aria-label="Outcome highlights">
-                    <span
-                      class="finale-outcome-tag"
-                      :class="
-                        isHighPressureOutcome
-                          ? 'finale-outcome-tag--warn'
-                          : 'finale-outcome-tag--calm'
-                      "
-                    >
-                      {{ isHighPressureOutcome ? 'High pressure run' : 'Low pressure run' }}
-                    </span>
-                    <span class="finale-outcome-tag finale-outcome-tag--neutral"
-                      >Scenario complete</span
-                    >
-                  </div>
                 </div>
               </section>
               <section
@@ -374,118 +379,124 @@
                 v-if="showPersonalSummary"
                 aria-label="Learning report and AI coach"
               >
-                <details class="finale-coach-panel" open aria-label="Learning and AI coach">
-                  <summary class="finale-coach-panel__summary disclosure-summary">
-                    <span class="disclosure-summary__text">
-                      <span class="ai-sparkle" aria-hidden="true">AI</span>
-                      Learning &amp; AI coach
-                      <span v-if="coachLoading" class="ai-badge ai-badge--loading" aria-live="polite"
-                        >...</span
-                      >
-                      <span v-else-if="coachSource === 'ai'" class="ai-badge ai-badge--ok">
-                        Gemini
+                <div class="finale-coach-head">
+                  <p class="finale-coach-kicker">AI learning &amp; coach</p>
+                  <span v-if="coachLoading" class="ai-badge ai-badge--loading" aria-live="polite"
+                    >...</span
+                  >
+                  <span v-else-if="coachSource === 'ai'" class="ai-badge ai-badge--ok">Gemini</span>
+                  <span v-else class="ai-badge ai-badge--offline-model">Offline coach</span>
+                </div>
+                <div class="coach-three-column" aria-label="Learning highlights">
+                  <article class="coach-mini-card coach-mini-card--why">
+                    <p class="coach-mini-card__title">
+                      <span class="coach-mini-card__title-icon" aria-hidden="true">
+                        <Lightbulb :size="18" />
                       </span>
-                    </span>
-                    <span class="disclosure-chevron" aria-hidden="true"></span>
-                  </summary>
-                  <div class="summary-body summary-body--ai-open">
-                    <div class="coach-unified-stack coach-unified-stack--ai-only">
-                      <section
-                        v-if="harmFocusBullets.length"
-                        class="coach-panel coach-panel--stakes"
-                        :class="{ 'coach-panel--stakes-high': isHighPressureOutcome }"
-                        aria-label="Harm patterns"
-                      >
-                        <p class="coach-panel__heading">Why it works</p>
-                        <p v-if="isHighPressureOutcome" class="coach-stakes-meta">
-                          Signals | ABC News Jul 2025 | Scamwatch
-                        </p>
-                        <ul class="coach-stakes-bullets">
-                          <li v-for="(bullet, hb) in harmFocusBullets" :key="`coach-h-${hb}`">
-                            {{ bullet }}
-                          </li>
-                        </ul>
-                      </section>
-
-                      <section class="coach-panel coach-panel--synthesis" aria-label="Coach">
-                        <p class="coach-panel__heading coach-panel__heading--secondary">
-                          Coach note
-                        </p>
-
-                        <details v-if="coachError" class="coach-livefail">
-                          <summary class="coach-livefail__summary">
-                            Could not reach the live Gemini model - offline coach fills in below.
-                          </summary>
-                          <p class="coach-livefail__detail">{{ coachError }}</p>
-                        </details>
-
-                        <div v-if="coachLoading" class="ai-coach-skeleton">
-                          <span class="ai-coach-line ai-coach-line--wide"></span>
-                          <span class="ai-coach-line"></span>
-                          <span class="ai-coach-line ai-coach-line--mid"></span>
-                        </div>
-                        <div v-else class="ai-coach-compact">
-                          <p v-if="coachParagraphDisplay" class="ai-coach-compact__para">
-                            {{ coachParagraphDisplay }}
-                          </p>
-                          <p v-if="coachTopRiskDisplay" class="ai-coach-compact__riskline">
-                            <span>Pattern:</span> {{ coachTopRiskDisplay }}
-                          </p>
-                          <div
-                            v-if="coachChecklistRows.length"
-                            class="ai-coach-checklist"
-                            aria-label="Action checklist"
-                          >
-                            <p class="ai-coach-checklist__label">Next step checklist</p>
-                            <div class="ai-coach-checklist__items">
-                              <button
-                                v-for="row in coachChecklistRows"
-                                :key="row.id"
-                                type="button"
-                                class="ai-coach-checklist__item"
-                                :class="{
-                                  'ai-coach-checklist__item--on': nextStepChecksModel[row.id],
-                                }"
-                                :aria-pressed="Boolean(nextStepChecksModel[row.id])"
-                                @click="nextStepChecksModel[row.id] = !nextStepChecksModel[row.id]"
-                              >
-                                <span class="ai-coach-checklist__box" aria-hidden="true"></span>
-                                <span v-if="row.tag" class="ai-coach-checklist__tag">{{
-                                  row.tag
-                                }}</span>
-                                <span>{{ row.label }}</span>
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </section>
+                      <span>Why it works</span>
+                    </p>
+                    <p class="coach-mini-card__text">{{ coachWhyText }}</p>
+                  </article>
+                  <article class="coach-mini-card coach-mini-card--note">
+                    <p class="coach-mini-card__title">
+                      <span class="coach-mini-card__title-icon" aria-hidden="true">
+                        <Bot :size="18" />
+                      </span>
+                      <span>Coach note</span>
+                    </p>
+                    <div v-if="coachLoading" class="ai-coach-skeleton">
+                      <span class="ai-coach-line ai-coach-line--wide"></span>
+                      <span class="ai-coach-line"></span>
+                      <span class="ai-coach-line ai-coach-line--mid"></span>
                     </div>
+                    <template v-else>
+                      <p class="coach-mini-card__text">{{ coachNoteText }}</p>
+                      <p v-if="coachTopRiskDisplay" class="coach-mini-card__subline">
+                        <span>Pattern:</span> {{ coachTopRiskDisplay }}
+                      </p>
+                      <p class="coach-mini-card__chip">
+                        <span class="coach-mini-card__chip-icon" aria-hidden="true">
+                          <Sparkles :size="13" />
+                        </span>
+                        <span>{{ coachControlChip }}</span>
+                      </p>
+                    </template>
+                  </article>
+                  <article class="coach-mini-card coach-mini-card--next">
+                    <p class="coach-mini-card__title">
+                      <span class="coach-mini-card__title-icon" aria-hidden="true">
+                        <Target :size="18" />
+                      </span>
+                      <span>Next step this week</span>
+                    </p>
+                    <p class="coach-mini-card__text">{{ coachNextStepText }}</p>
+                  </article>
+                </div>
+
+                <div
+                  v-if="coachChecklistPrimaryRows.length"
+                  class="finale-action-checklist"
+                  aria-label="Action checklist"
+                >
+                  <p class="finale-action-checklist__label">
+                    <span>ACTION</span>
+                    <span>CHECKLIST</span>
+                  </p>
+                  <div class="finale-action-checklist__items">
+                    <button
+                      v-for="row in coachChecklistPrimaryRows"
+                      :key="row.id"
+                      type="button"
+                      class="finale-action-item"
+                      :class="{ 'finale-action-item--on': nextStepChecksModel[row.id] }"
+                      :aria-pressed="Boolean(nextStepChecksModel[row.id])"
+                      @click="nextStepChecksModel[row.id] = !nextStepChecksModel[row.id]"
+                    >
+                      <span class="finale-action-item__box" aria-hidden="true"></span>
+                      <span class="finale-action-item__icon-wrap" aria-hidden="true">
+                        <component
+                          :is="getFinalChecklistIcon(row.id)"
+                          class="finale-action-item__icon"
+                          :size="16"
+                        />
+                      </span>
+                      <span class="finale-action-item__copy">
+                        <strong class="finale-action-item__title">
+                          {{ getChecklistDisplay(row.id).title }}
+                        </strong>
+                        <span class="finale-action-item__text">
+                          {{ getChecklistDisplay(row.id).detail }}
+                        </span>
+                      </span>
+                    </button>
                   </div>
-                </details>
+                </div>
 
                 <section class="finale-insights-report" aria-label="Scam insights report">
-                  <div class="finale-insights-report__head">
-                    <p class="finale-insights-report__kicker">Scam insights report</p>
-                    <h5 class="finale-insights-report__title">Data facts for {{ activeInsightReport.typeLabel }}</h5>
-                    <p class="finale-insights-report__summary">
-                      For {{ activeInsightReport.typeLabel }}, here are data facts that can help you
-                      make better decisions.
-                    </p>
-                  </div>
-
-                  <div class="finale-insights-type-tabs" role="tablist" aria-label="Insight modules">
-                    <button
-                      v-for="option in insightViewOptions"
-                      :key="option.key"
-                      type="button"
-                      class="finale-insights-type-tab"
-                      :class="{ 'finale-insights-type-tab--active': selectedInsightView === option.key }"
-                      :aria-selected="selectedInsightView === option.key"
-                      role="tab"
-                      @click="selectedInsightView = option.key"
-                    >
-                      {{ option.label }}
-                    </button>
+                  <div class="finale-insights-report__top">
+                    <div class="finale-insights-report__head">
+                      <p class="finale-insights-report__kicker">Scam insights report</p>
+                      <h5 class="finale-insights-report__title">
+                        Data facts for {{ activeInsightReport.typeLabel }}
+                      </h5>
+                      <p class="finale-insights-report__summary">
+                        Real data to help you spot patterns, protect yourself and others.
+                      </p>
+                    </div>
+                    <div class="finale-insights-type-tabs" role="tablist" aria-label="Insight modules">
+                      <button
+                        v-for="option in insightViewOptions"
+                        :key="option.key"
+                        type="button"
+                        class="finale-insights-type-tab"
+                        :class="{ 'finale-insights-type-tab--active': selectedInsightView === option.key }"
+                        :aria-selected="selectedInsightView === option.key"
+                        role="tab"
+                        @click="selectedInsightView = option.key"
+                      >
+                        {{ option.label }}
+                      </button>
+                    </div>
                   </div>
 
                   <article class="finale-insights-type-card">
@@ -567,13 +578,15 @@
                             />
                             <div class="finale-map-year-labels" aria-label="Map year scale">
                               <span
-                                v-for="year in activeInsightYears"
-                                :key="`sim-map-year-${year}`"
+                                v-for="yearMark in insightYearScaleMarks"
+                                :key="`sim-map-year-${yearMark.year}`"
+                                class="finale-map-year-labels__year"
                                 :class="{
                                   'finale-map-year-labels__year--active':
-                                    Number(year) === Number(selectedInsightYear),
+                                    Number(yearMark.year) === Number(selectedInsightYear),
                                 }"
-                                >{{ year }}</span
+                                :style="yearMark.style"
+                                >{{ yearMark.year }}</span
                               >
                             </div>
                           </div>
@@ -588,34 +601,52 @@
                     <section v-else class="finale-insights-block finale-insights-block--summary">
                       <p class="finale-insights-block__title">Dataset summary</p>
                       <p class="finale-insights-summary-period">Time period: {{ insightTimePeriod }}</p>
-                      <div class="finale-summary-dual-box">
-                        <div class="finale-summary-dual-box__half">
-                          <strong class="finale-summary-dual-box__value">{{
-                            formatNumber(activeInsightReport.typeTotalReports)
-                          }}</strong>
-                          <span class="finale-summary-dual-box__label">Total reported cases</span>
-                        </div>
-                        <div class="finale-summary-dual-box__divider" aria-hidden="true"></div>
-                        <div class="finale-summary-dual-box__half">
-                          <strong class="finale-summary-dual-box__value">{{
-                            formatMoney(activeInsightReport.typeTotalLoss)
-                          }}</strong>
-                          <span class="finale-summary-dual-box__label"
-                            >Total combined financial loss</span
-                          >
-                        </div>
+                      <div class="finale-summary-stats-row">
+                        <article class="finale-summary-stat">
+                          <span class="finale-summary-stat__glyph" aria-hidden="true">
+                            <TrendingUp :size="20" />
+                          </span>
+                          <div class="finale-summary-stat__copy">
+                            <strong class="finale-summary-stat__value">{{
+                              formatNumber(activeInsightReport.typeTotalReports)
+                            }}</strong>
+                            <span class="finale-summary-stat__label">Total reported cases</span>
+                          </div>
+                        </article>
+                        <article class="finale-summary-stat">
+                          <span class="finale-summary-stat__glyph" aria-hidden="true">
+                            <DollarSign :size="20" />
+                          </span>
+                          <div class="finale-summary-stat__copy">
+                            <strong class="finale-summary-stat__value">{{
+                              formatMoney(activeInsightReport.typeTotalLoss)
+                            }}</strong>
+                            <span class="finale-summary-stat__label">Total combined financial loss</span>
+                          </div>
+                        </article>
+                        <article class="finale-summary-stat">
+                          <span class="finale-summary-stat__glyph" aria-hidden="true">
+                            <BadgeCheck :size="20" />
+                          </span>
+                          <div class="finale-summary-stat__copy">
+                            <strong v-if="activeInsightReport.rankInfo" class="finale-summary-stat__value">
+                              #{{ activeInsightReport.rankInfo.rank }} /
+                              {{ activeInsightReport.rankInfo.totalTypes }}
+                            </strong>
+                            <strong v-else class="finale-summary-stat__value">N/A</strong>
+                            <span class="finale-summary-stat__label">Rank by report count</span>
+                          </div>
+                        </article>
                       </div>
-                      <div class="finale-summary-grid">
-                        <div class="finale-summary-tile">
-                          <strong v-if="activeInsightReport.rankInfo">
-                            #{{ activeInsightReport.rankInfo.rank }} /
-                            {{ activeInsightReport.rankInfo.totalTypes }}
-                          </strong>
-                          <strong v-else>N/A</strong>
-                          <span>Rank by report count</span>
-                        </div>
-                      </div>
-                      <p class="finale-summary-meaning">{{ insightMeaningLine }}</p>
+                      <p class="finale-summary-meaning">
+                        <span class="finale-summary-meaning__label-wrap">
+                          <span class="finale-summary-meaning__icon" aria-hidden="true">
+                            <Lightbulb :size="14" />
+                          </span>
+                          <span class="finale-summary-meaning__label">What this means</span>
+                        </span>
+                        <span>{{ insightMeaningLine }}</span>
+                      </p>
                     </section>
                   </article>
                 </section>
@@ -635,8 +666,7 @@
               </div>
             </div>
           </template>
-        </article>
-      </Transition>
+      </article>
     </div>
 
     <Teleport to="body">
@@ -688,6 +718,18 @@
 
 <script setup>
 import { computed, ref, reactive, watch, onMounted, onBeforeUnmount } from 'vue'
+import {
+  BadgeCheck,
+  Bot,
+  DollarSign,
+  Lightbulb,
+  Lock,
+  MailCheck,
+  ShieldCheck,
+  Sparkles,
+  Target,
+  TrendingUp,
+} from 'lucide-vue-next'
 import DualAxisTrendChart from './DualAxisTrendChart.vue'
 import PersonPictogramChart from './PersonPictogramChart.vue'
 import LeafletD3Map from './LeafletD3Map.vue'
@@ -812,15 +854,15 @@ const coachParagraphDisplay = computed(() => props.coachParagraph.trim())
 const coachTopRiskDisplay = computed(() => props.coachTopRisk.trim())
 const insightTypeOptions = getScamTypeOptions()
 const insightViewOptions = [
+  { key: 'summary', label: 'Dataset summary' },
   { key: 'trend', label: 'Trend & loss' },
   { key: 'age', label: 'Age groups' },
   { key: 'location', label: 'Location map' },
-  { key: 'summary', label: 'Dataset summary' },
 ]
 const insightTimePeriod = computed(() => getTimePeriod())
 const insightFallbackYear =
   [...getAvailableYears()].sort((a, b) => a - b).at(-1) ?? new Date().getFullYear()
-const selectedInsightView = ref('trend')
+const selectedInsightView = ref('summary')
 const selectedInsightYear = ref(insightFallbackYear)
 const isInsightMapPlaying = ref(false)
 let insightMapTimer = null
@@ -936,6 +978,33 @@ const activeInsightYears = computed(() =>
   ].sort((a, b) => a - b),
 )
 
+const insightYearScaleMarks = computed(() => {
+  const years = activeInsightYears.value
+  if (!years.length) return []
+
+  const minYear = Number(years[0])
+  const maxYear = Number(years[years.length - 1])
+  const span = Math.max(1, maxYear - minYear)
+  const lastIndex = years.length - 1
+
+  return years.map((year, index) => {
+    const yearNumber = Number(year)
+    const offset = Math.max(0, Math.min(1, (yearNumber - minYear) / span))
+
+    let transformValue = 'translateX(-50%)'
+    if (index === 0) transformValue = 'translateX(0)'
+    if (index === lastIndex) transformValue = 'translateX(-100%)'
+
+    return {
+      year: yearNumber,
+      style: {
+        left: `${(offset * 100).toFixed(4)}%`,
+        transform: transformValue,
+      },
+    }
+  })
+})
+
 const activeYearLocationData = computed(() =>
   activeInsightReport.value.locationTrendData.filter(
     (row) => Number(row.year) === Number(selectedInsightYear.value),
@@ -1034,6 +1103,22 @@ const harmFocusBullets = computed(() => {
   return Array.isArray(low) && low.length ? low.slice(0, 1) : []
 })
 
+const coachWhyText = computed(
+  () =>
+    harmFocusBullets.value[0] ||
+    'Pausing before payout or ID sharing breaks scripted scam momentum.',
+)
+
+const coachNoteText = computed(
+  () =>
+    coachParagraphDisplay.value ||
+    'Scammers rely on low-effort hooks and urgency. You did not bite, great call.',
+)
+
+const coachControlChip = computed(() =>
+  isHighPressureOutcome.value ? 'Cutting contact early blocks escalation.' : "That's how you stay in control.",
+)
+
 function normalizeWords(text) {
   return String(text || '')
     .replace(/[^a-zA-Z0-9\s]/g, ' ')
@@ -1086,6 +1171,40 @@ const coachChecklistRows = computed(() => {
     },
   ]
 })
+
+const coachChecklistPrimaryRows = computed(() => {
+  const orderedIds = ['ai-step', 'no-pay', 'report']
+  const rowsById = new Map(coachChecklistRows.value.map((row) => [row.id, row]))
+  const selectedRows = orderedIds.map((id) => rowsById.get(id)).filter(Boolean)
+  return selectedRows.length >= 3 ? selectedRows.slice(0, 3) : coachChecklistRows.value.slice(0, 3)
+})
+
+const coachNextStepText = computed(() => coachChecklistPrimaryRows.value[0]?.label || '')
+
+function getFinalChecklistIcon(id) {
+  if (id === 'ai-step') return MailCheck
+  if (id === 'no-pay') return Lock
+  return ShieldCheck
+}
+
+function getChecklistDisplay(id) {
+  if (id === 'ai-step') {
+    return {
+      title: 'Pick one recruiter message',
+      detail: 'this week and run it.',
+    }
+  }
+  if (id === 'no-pay') {
+    return {
+      title: 'No upfront payout',
+      detail: 'unlock fees.',
+    }
+  }
+  return {
+    title: 'Save proof and report',
+    detail: 'to Scamwatch.',
+  }
+}
 
 const insightMeaningLine = computed(() => {
   const rankInfo = activeInsightReport.value.rankInfo
@@ -1320,7 +1439,7 @@ watch(
     showPersonalSummary.value = false
     showFullscreenPrompt.value = false
     interactionTiming.value = []
-    selectedInsightView.value = 'trend'
+    selectedInsightView.value = 'summary'
     selectedInsightYear.value = activeInsightYears.value[0] ?? insightFallbackYear
     stopInsightMapPlayback()
     Object.keys(nextStepChecksModel).forEach((key) => {
@@ -1335,8 +1454,8 @@ watch(
   width: 100%;
   max-width: min(1280px, 100%);
   margin: 0 auto;
-  background: linear-gradient(180deg, #eef4f6 0%, #f7f8f6 100%);
-  --bg-page: #eef4f6;
+  background: #fcf7f1;
+  --bg-page: #fcf7f1;
   --bg-panel: #ffffff;
   --bg-soft-blue: #eef4f6;
   --bg-warning: #fdedea;
@@ -1396,12 +1515,60 @@ watch(
 }
 
 .sim-card--walkthrough {
-  grid-template-columns: minmax(0, 48fr) minmax(0, 52fr);
+  grid-template-columns: minmax(0, 45fr) minmax(0, 55fr);
+  min-height: clamp(420px, 62vh, 560px);
+  position: relative;
+}
+
+.walkthrough-canvas-head {
+  background: #f7efe3;
+  border-bottom: 1px solid #e8dccb;
+  display: grid;
+  gap: 8px;
+  grid-column: 1 / -1;
+  padding: 11px 16px 10px;
+}
+
+.walkthrough-canvas-head__top {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.walkthrough-canvas-head__scenario,
+.walkthrough-canvas-head__stage {
+  color: #2f5fa7;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.walkthrough-canvas-head__bar {
+  background: #e3d7c8;
+  border-radius: 999px;
+  height: 5px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.walkthrough-canvas-head__bar span {
+  background: #1b2e5e;
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  transition: width 0.22s ease;
 }
 
 .sim-card--finale {
   grid-template-columns: minmax(0, 1fr);
   min-height: auto;
+  background: #fcf7f1;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .sim--fullscreen .sim-card--walkthrough {
@@ -1469,6 +1636,12 @@ watch(
   align-self: stretch;
 }
 
+.sim-visual--walkthrough {
+  background: #faf3e9;
+  border-right: 0;
+  padding: 12px 14px 14px;
+}
+
 .intro-visual {
   background: var(--bg-page);
   display: flex;
@@ -1491,18 +1664,20 @@ watch(
 }
 
 .scene-card--walkthrough {
-  background: var(--bg-panel);
+  background: #faf3e9;
+  border: 1px solid #e7dac8;
+  border-radius: 12px;
 }
 
 .wt-block {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 14px 16px;
+  gap: 7px;
+  padding: 10px 12px;
 }
 
 .wt-block--scene {
-  background: var(--bg-page);
+  background: #f8efe2;
   border-bottom: 1px solid var(--cream-border);
 }
 
@@ -1516,24 +1691,23 @@ watch(
 }
 
 .scene-image-wrap--walkthrough {
-  min-height: clamp(288px, 46vh, 540px);
+  min-height: clamp(220px, 34vh, 320px);
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--cream-border);
-  background: var(--bg-page);
+  background: #f6ecdf;
 }
 
 .wt-block--conversation {
-  background: var(--bg-panel);
-  flex: 1 1 auto;
+  background: #fffdfa;
   min-height: 0;
 }
 
 .wt-conversation-card {
-  border-radius: 12px;
-  border: 1px solid var(--cream-border);
-  background: var(--bg-panel);
-  padding: 8px 9px;
+  border-radius: 10px;
+  border: 1px solid #e7dac8;
+  background: #fffdfa;
+  padding: 6px 8px;
 }
 
 .scene-image-fade--walkthrough {
@@ -1666,25 +1840,25 @@ watch(
 .bubble {
   margin: 0;
   border-radius: 12px;
-  padding: 9px 11px;
-  font-size: 0.82rem;
-  line-height: 1.42;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+  line-height: 1.4;
   position: relative;
 }
 
 .bubble--scammer {
-  background: #f7efe5;
+  background: #f7eee1;
   color: var(--navy);
   border: 1px solid var(--cream-border);
-  max-width: 95%;
+  max-width: 92%;
 }
 
 .bubble--alex {
-  background: var(--bg-soft-blue);
+  background: #edf4fb;
   color: var(--navy);
   border: 1px solid var(--cream-border);
   justify-self: end;
-  max-width: 96%;
+  max-width: 92%;
 }
 
 .phone-thread {
@@ -1698,7 +1872,7 @@ watch(
 }
 
 .phone-thread.phone-thread--walkthrough {
-  gap: 5px;
+  gap: 6px;
   background: transparent;
   border: none;
   padding: 0;
@@ -1732,21 +1906,23 @@ watch(
 }
 
 .sim-copy--scene {
-  gap: 10px;
+  background: #fffdfa;
+  gap: 9px;
+  padding: 12px 14px 12px;
 }
 
 .scene-stage-title {
   margin: 2px 0 0;
   color: var(--navy);
-  font-size: 1.08rem;
-  line-height: 1.32;
+  font-size: 1.28rem;
+  line-height: 1.26;
 }
 
 .scene-stage-lead {
   margin: 0;
-  color: var(--text-muted);
-  font-size: 0.84rem;
-  line-height: 1.58;
+  color: #5a7397;
+  font-size: 0.9rem;
+  line-height: 1.48;
 }
 
 .sim-copy--intro {
@@ -1790,33 +1966,33 @@ watch(
 }
 
 .sim-copy--final {
-  background:
-    radial-gradient(circle at 12% 4%, rgba(59, 111, 143, 0.08), rgba(238, 244, 246, 0) 42%),
-    linear-gradient(180deg, #eef4f6 0%, #f7f8f6 100%);
+  background: #ffffff;
   display: flex;
   flex-direction: column;
-  padding: 16px 18px 18px;
-  gap: 16px;
+  padding: 14px 24px 16px;
+  gap: 10px;
+  font-size: 12px;
   overflow-x: hidden;
   overflow-y: auto;
   width: 100%;
-  max-width: 100%;
+  max-width: min(1260px, 100%);
   min-width: 0;
   box-sizing: border-box;
+  margin: 0 auto;
 }
 
 .finale-celebration {
   align-items: center;
-  background: linear-gradient(135deg, rgba(59, 111, 143, 0.08) 0%, rgba(247, 248, 246, 0.95) 70%);
-  border-top: 2px solid rgba(27, 46, 94, 0.35);
-  border-bottom: 1px solid var(--cream-border);
-  border-radius: 0;
-  display: flex;
-  gap: 14px;
+  background: #fcf7f1;
+  border: 0;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr);
   margin: 0;
-  padding: 14px 0 12px;
-  width: 100%;
   min-width: 0;
+  padding: 10px 14px;
+  width: 100%;
   box-sizing: border-box;
 }
 
@@ -1828,8 +2004,8 @@ watch(
 .finale-celebration__img {
   display: block;
   height: auto;
-  max-height: 112px;
-  max-width: 112px;
+  max-height: 122px;
+  max-width: 170px;
   object-fit: contain;
   width: auto;
 }
@@ -1837,61 +2013,302 @@ watch(
 .finale-celebration__copy {
   display: grid;
   flex: 1 1 auto;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
 }
 
 .finale-celebration__eyebrow {
-  color: #3b6f8f;
-  font-size: 0.68rem;
+  align-items: center;
+  color: #0b8e66;
+  display: inline-flex;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.finale-celebration__eyebrow-icon {
+  align-items: center;
+  color: #0b8e66;
+  display: inline-flex;
+}
+
+.finale-celebration__message {
+  color: #334155;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.final-outcome-heading {
+  margin: 0;
+  color: #14254f;
+  font-size: clamp(1.75rem, 2.6vw, 2.1rem);
+  line-height: 1.14;
+}
+
+.outcome-section--coach {
+  display: grid;
+  gap: 10px;
+}
+
+.finale-coach-head {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.finale-coach-kicker {
+  color: #2f5fa7;
+  font-size: 0.76rem;
   font-weight: 800;
   letter-spacing: 0.1em;
   margin: 0;
   text-transform: uppercase;
 }
 
-.finale-celebration__message {
-  color: var(--text-main);
-  font-size: 0.86rem;
-  line-height: 1.45;
+.coach-three-column {
+  align-items: stretch;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  display: grid;
+  gap: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.coach-mini-card {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 2px 10px 2px 0;
+}
+
+.coach-mini-card + .coach-mini-card {
+  border-left: 1px solid #ece2d5;
+  margin-left: 10px;
+  padding-left: 10px;
+}
+
+.coach-mini-card__title {
+  align-items: center;
+  color: #2f5fa7;
+  display: inline-flex;
+  gap: 9px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.3;
+  margin: 0;
+  min-height: 46px;
+}
+
+.coach-mini-card__title-icon {
+  align-items: center;
+  background: #f6f1e7;
+  border: 1px solid #eadfce;
+  border-radius: 999px;
+  color: #2f5fa7;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
+}
+
+.coach-mini-card__title-icon :deep(svg) {
+  color: #2f5fa7;
+  flex: 0 0 auto;
+}
+
+.coach-mini-card__text {
+  color: #5f7ea5;
+  font-size: 0.75rem;
+  line-height: 1.34;
   margin: 0;
 }
 
-.finale-outcome-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
+.coach-mini-card__subline {
+  color: #5f7ea5;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  margin: 0;
 }
 
-.finale-outcome-tag {
-  border: 1px solid transparent;
-  border-radius: 999px;
-  display: inline-flex;
-  font-size: 0.66rem;
+.coach-mini-card__subline span {
+  color: #8a1e1b;
   font-weight: 800;
-  letter-spacing: 0.04em;
+}
+
+.coach-mini-card__chip {
+  background: #fee9b5;
+  border: 1px solid rgba(217, 119, 6, 0.24);
+  border-radius: 8px;
+  color: #714e07;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.71rem;
+  font-weight: 700;
+  line-height: 1.32;
+  margin: 0;
+  padding: 4px 7px;
+  width: fit-content;
+}
+
+.coach-mini-card__chip-icon {
+  color: #e5a100;
+  display: inline-flex;
+  font-size: 0.88rem;
+  line-height: 1;
+}
+
+.coach-mini-card__chip-icon :deep(svg) {
+  color: inherit;
+}
+
+.coach-mini-card__inline-highlight {
+  background: #fdf0b0;
+  border-radius: 5px;
+  color: #6b4a05;
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 700;
   line-height: 1.2;
-  padding: 4px 8px;
+  margin: 0;
+  padding: 3px 7px;
+  width: fit-content;
+}
+
+.finale-action-checklist {
+  align-items: stretch;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid #e9dfd2;
+  border-radius: 0;
+  display: grid;
+  gap: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  margin: 2px 0 0;
+  overflow: visible;
+  padding-top: 10px;
+  width: 100%;
+}
+
+.finale-action-checklist__label {
+  align-items: center;
+  border-right: 1px solid #e9dfd2;
+  color: #2f5fa7;
+  display: inline-grid;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  line-height: 1.35;
+  margin: 0;
+  max-width: 154px;
+  min-width: 146px;
+  padding: 0 14px;
   text-transform: uppercase;
 }
 
-.finale-outcome-tag--warn {
-  background: rgba(208, 49, 45, 0.1);
-  border-color: rgba(208, 49, 45, 0.32);
-  color: #a91f1f;
+.finale-action-checklist__label span {
+  display: block;
 }
 
-.finale-outcome-tag--calm {
-  background: rgba(122, 154, 130, 0.12);
-  border-color: rgba(122, 154, 130, 0.34);
-  color: #4c6e55;
+.finale-action-checklist__items {
+  display: grid;
+  gap: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.finale-outcome-tag--neutral {
-  background: rgba(27, 46, 94, 0.08);
-  border-color: rgba(27, 46, 94, 0.22);
-  color: #1b2e5e;
+.finale-action-item {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-right: 1px solid #eee4d8;
+  color: #1f2937;
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  min-height: 58px;
+  padding: 7px 12px;
+  text-align: left;
+}
+
+.finale-action-item:last-child {
+  border-right: 0;
+}
+
+.finale-action-item__box {
+  border: 1.5px solid #a9b6cc;
+  border-radius: 6px;
+  height: 20px;
+  position: relative;
+  width: 20px;
+}
+
+.finale-action-item__icon-wrap {
+  align-items: center;
+  background: #eef2fb;
+  border: 1px solid #d9e2f1;
+  border-radius: 999px;
+  color: #2f5fa7;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
+}
+
+.finale-action-item__text {
+  color: #1f2937;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.finale-action-item__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.finale-action-item__title {
+  color: #111827;
+  font-size: 0.94rem;
+  font-weight: 800;
+  line-height: 1.22;
+}
+
+.finale-action-item__icon {
+  color: inherit;
+}
+
+.finale-action-item--on {
+  background: #f2f7ff;
+}
+
+.finale-action-item--on .finale-action-item__box {
+  background: #3b6f8f;
+  border-color: #3b6f8f;
+}
+
+.finale-action-item--on .finale-action-item__box::after {
+  color: #fff;
+  content: '\2713';
+  font-size: 12px;
+  font-weight: 800;
+  left: 50%;
+  line-height: 1;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .finale-recap-panel,
@@ -2215,10 +2632,10 @@ details[open] > .disclosure-summary .disclosure-chevron {
 }
 
 .final-outcome-heading {
-  margin: 4px 0 2px;
-  color: var(--navy);
-  font-size: 1.05rem;
-  line-height: 1.3;
+  margin: 0;
+  color: #14254f;
+  font-size: clamp(1.55rem, 2.55vw, 2.02rem);
+  line-height: 1.2;
 }
 
 .outcome-section__kicker {
@@ -2494,11 +2911,11 @@ details[open] > .disclosure-summary .disclosure-chevron {
 
 @media (min-width: 861px) {
   .sim-visual.sim-visual--walkthrough {
-    padding-top: 50px;
+    padding-top: 12px;
   }
 
   .sim-copy.sim-copy--scene {
-    padding-top: 50px;
+    padding-top: 12px;
   }
 }
 
@@ -2531,7 +2948,10 @@ details[open] > .disclosure-summary .disclosure-chevron {
   min-width: 0;
 }
 
-.sim-card--walkthrough .scene-head--desktop,
+.sim-card--walkthrough .scene-head--desktop {
+  display: none;
+}
+
 .sim-card--walkthrough .scene-stage-title--desktop {
   display: block;
 }
@@ -2576,21 +2996,21 @@ details[open] > .disclosure-summary .disclosure-chevron {
 
 .risk-signal {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .risk-signal--editorial {
-  border: 1px solid var(--cream-border);
-  border-left: 4px solid var(--coral);
-  background: #fffdfc;
-  border-radius: 12px;
-  padding: 12px 14px;
+  border: 1px solid #f1d8d5;
+  border-left: 3px solid var(--coral);
+  background: #fffaf8;
+  border-radius: 10px;
+  padding: 9px 11px;
 }
 
 .risk-signal__tag {
   margin: 0;
   color: var(--navy);
-  font-size: 0.84rem;
+  font-size: 0.8rem;
   font-weight: 800;
   letter-spacing: 0.01em;
   display: flex;
@@ -2607,9 +3027,9 @@ details[open] > .disclosure-summary .disclosure-chevron {
 
 .risk-signal__reason {
   margin: 0;
-  color: #4b5563;
-  font-size: 0.84rem;
-  line-height: 1.52;
+  color: #5f738f;
+  font-size: 0.8rem;
+  line-height: 1.44;
 }
 
 .risk-signal__kicker,
@@ -2633,12 +3053,12 @@ details[open] > .disclosure-summary .disclosure-chevron {
 }
 
 .thinking-strip {
-  padding: 10px 12px;
-  border-radius: 12px;
+  padding: 9px 10px;
+  border-radius: 10px;
   border: 1px solid var(--cream-border);
-  background: var(--bg-soft-blue);
+  background: #f0f5fb;
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .thinking-strip__label {
@@ -2652,14 +3072,14 @@ details[open] > .disclosure-summary .disclosure-chevron {
 
 .thinking-strip__line {
   margin: 0;
-  font-size: 0.84rem;
-  line-height: 1.52;
-  color: var(--navy);
+  font-size: 0.8rem;
+  line-height: 1.42;
+  color: #4f6788;
 }
 
 .choices-prompt {
   margin: 2px 0 0;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2815,17 +3235,44 @@ details[open] > .disclosure-summary .disclosure-chevron {
 }
 
 .actions--finale {
-  border-top: 1px solid rgba(27, 46, 94, 0.14);
+  border-top: 1px solid #e6ddcf;
+  gap: 12px;
   justify-content: flex-start;
   margin-top: 6px;
   padding-top: 12px;
+}
+
+.actions--finale .primary,
+.actions--finale .secondary {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 48px;
+  min-width: 240px;
+  padding: 11px 18px;
+}
+
+.actions--finale .primary {
+  background: linear-gradient(180deg, #dd4138 0%, #cb2d25 100%);
+  border-radius: 12px;
+}
+
+.actions--finale .primary:hover,
+.actions--finale .primary:focus-visible {
+  background: linear-gradient(180deg, #ce3c33 0%, #b92721 100%);
+}
+
+.actions--finale .secondary {
+  border-color: rgba(27, 46, 94, 0.38);
+  border-width: 2px;
+  border-radius: 12px;
 }
 
 .choices--scene {
   flex-direction: column;
   flex-wrap: nowrap;
   width: 100%;
-  gap: 10px;
+  gap: 8px;
   margin-top: 0;
 }
 
@@ -2833,35 +3280,55 @@ details[open] > .disclosure-summary .disclosure-chevron {
   width: 100%;
   background: var(--bg-panel);
   border: 1px solid var(--cream-border);
-  border-left: 4px solid var(--navy);
-  border-radius: 14px;
+  border-left: 3px solid #cbd5e1;
+  border-radius: 12px;
   color: var(--navy);
   cursor: pointer;
   display: grid;
-  font-size: 0.95rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  font-size: 0.88rem;
   font-weight: 700;
-  gap: 5px;
-  line-height: 1.45;
-  padding: 14px 16px;
+  gap: 8px;
+  line-height: 1.38;
+  padding: 11px 12px;
   position: relative;
   text-align: left;
   transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    background-color 0.2s ease;
+    border-color 0.16s ease,
+    background-color 0.16s ease;
 }
 
 .choice:hover,
 .choice:focus-visible {
-  background: var(--bg-soft-blue);
+  background: #f5f8fc;
   border-color: var(--cream-border);
-  border-left-color: var(--coral);
-  box-shadow: 0 1px 4px rgba(27, 46, 94, 0.08);
+  border-left-color: #2f5fa7;
+  box-shadow: none;
 }
 
 .choice-title {
-  font-size: 0.95rem;
-  line-height: 1.45;
+  font-size: 0.88rem;
+  line-height: 1.38;
+}
+
+.choice-icon {
+  align-items: center;
+  border-radius: 999px;
+  color: #2f5fa7;
+  display: inline-flex;
+  height: 26px;
+  justify-content: center;
+  width: 26px;
+  background: #edf3fb;
+}
+
+.choice--safe {
+  border-left-color: #3b6f8f;
+}
+
+.choice--risk {
+  border-left-color: #cbd5e1;
 }
 
 .choice:disabled {
@@ -2876,7 +3343,7 @@ details[open] > .disclosure-summary .disclosure-chevron {
 
 .choice--selected-correct {
   border-color: var(--cream-border);
-  border-left-color: var(--teal);
+  border-left-color: #3b6f8f;
   background: rgba(122, 154, 130, 0.12);
 }
 
@@ -2887,7 +3354,7 @@ details[open] > .disclosure-summary .disclosure-chevron {
 }
 
 .choice--not-selected {
-  opacity: 0.72;
+  opacity: 0.82;
 }
 
 .coach-note {
@@ -2947,7 +3414,7 @@ details[open] > .disclosure-summary .disclosure-chevron {
 
 .outcome-section--coach {
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
 .ai-coach-compact__next {
@@ -2963,92 +3430,108 @@ details[open] > .disclosure-summary .disclosure-chevron {
 }
 
 .finale-insights-report {
-  background: transparent;
-  border-top: 2px solid rgba(27, 46, 94, 0.2);
-  border-radius: 0;
+  background: #fffdfa;
+  border: 1px solid #eee4d8;
+  border-radius: 10px;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 14px;
+}
+
+.finale-insights-report__top {
+  align-items: end;
   display: grid;
   gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
   min-width: 0;
-  padding: 10px 0 0;
 }
 
 .finale-insights-report__head {
   display: grid;
-  gap: 4px;
+  gap: 6px;
 }
 
 .finale-insights-report__kicker {
-  color: #6b7280;
-  font-size: 0.68rem;
+  color: #c5372f;
+  font-size: 0.62rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   margin: 0;
   text-transform: uppercase;
 }
 
 .finale-insights-report__title {
-  color: #1b2e5e;
-  font-size: 0.98rem;
-  line-height: 1.3;
+  color: #2f5fa7;
+  font-size: 1.34rem;
+  line-height: 1.15;
   margin: 0;
 }
 
 .finale-insights-report__summary {
-  color: var(--text-muted);
-  font-size: 0.8rem;
+  color: #475569;
+  font-size: 0.86rem;
   line-height: 1.45;
   margin: 0;
 }
 
 .finale-insights-type-tabs {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-wrap: nowrap;
+  gap: 18px;
   min-width: 0;
 }
 
 .finale-insights-type-tab {
-  background: #fff;
-  border: 1px solid rgba(27, 46, 94, 0.2);
-  border-radius: 999px;
-  color: #1b2e5e;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: #5f7ea5;
   cursor: pointer;
   font: inherit;
-  font-size: 0.74rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  min-height: 30px;
-  padding: 4px 10px;
+  min-height: 0;
+  padding: 4px 0 8px;
+  transition: none;
+  white-space: nowrap;
 }
 
 .finale-insights-type-tab--active {
-  background: #1b2e5e;
-  border-color: #1b2e5e;
-  color: #fff;
+  border-bottom-color: #1b2e5e;
+  color: #5f7ea5;
+}
+
+.finale-insights-type-tab:hover,
+.finale-insights-type-tab:focus-visible {
+  background: transparent;
+  color: #5f7ea5;
+  outline: none;
 }
 
 .finale-insights-type-card {
-  border-top: 1px solid rgba(27, 46, 94, 0.12);
+  border-top: 1px solid #ece2d5;
   display: grid;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
   padding-top: 10px;
 }
 
 .finale-insights-block {
-  background: #ffffff;
-  border: 1px solid #e3d7c8;
-  border-radius: 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   box-shadow: none;
   display: grid;
-  gap: 8px;
+  gap: 9px;
   min-width: 0;
   overflow: hidden;
-  padding: 10px;
+  padding: 0;
 }
 
 .finale-insights-block__title {
   color: #1b2e5e;
-  font-size: 0.74rem;
+  font-size: 0.61rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   margin: 0;
@@ -3266,7 +3749,7 @@ details[open] > .disclosure-summary .disclosure-chevron {
   cursor: pointer;
   display: inline-flex;
   font: inherit;
-  font-size: 0.74rem;
+  font-size: 0.66rem;
   font-weight: 700;
   gap: 6px;
   line-height: 1;
@@ -3278,7 +3761,7 @@ details[open] > .disclosure-summary .disclosure-chevron {
 
 .finale-map-year {
   color: #1f2937;
-  font-size: 0.8rem;
+  font-size: 0.71rem;
   margin: 0 0 0 auto;
   min-width: 0;
   white-space: nowrap;
@@ -3297,12 +3780,20 @@ details[open] > .disclosure-summary .disclosure-chevron {
 
 .finale-map-year-labels {
   color: #6b7280;
-  display: grid;
-  font-size: 0.66rem;
-  gap: 4px;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  text-align: center;
+  display: block;
+  font-size: 0.58rem;
+  height: 12px;
+  min-width: 0;
+  position: relative;
   width: 100%;
+}
+
+.finale-map-year-labels__year {
+  left: 0;
+  line-height: 1;
+  position: absolute;
+  top: 0;
+  white-space: nowrap;
 }
 
 .finale-map-year-labels__year--active {
@@ -3312,86 +3803,116 @@ details[open] > .disclosure-summary .disclosure-chevron {
 
 .finale-insights-summary-period {
   color: #6b7280;
-  font-size: 0.78rem;
+  font-size: 0.62rem;
   margin: 0;
 }
 
-.finale-summary-dual-box {
-  align-items: stretch;
+.finale-summary-stats-row {
   background: #fff;
-  border: 1px solid #e3d7c8;
-  border-radius: 8px;
+  border: 1px solid #ece2d5;
+  border-radius: 10px;
   display: grid;
   gap: 0;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
 }
 
-.finale-summary-dual-box__half {
+.finale-summary-stat {
+  align-items: center;
+  border-right: 1px solid #eee4d8;
   display: grid;
-  gap: 3px;
-  padding: 9px 10px;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-width: 0;
+  padding: 11px 12px;
 }
 
-.finale-summary-dual-box__divider {
-  background: #e3d7c8;
-  width: 1px;
+.finale-summary-stat:last-child {
+  border-right: 0;
 }
 
-.finale-summary-dual-box__label {
-  color: #6b7280;
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+.finale-summary-stat__glyph {
+  align-items: center;
+  background: #fbe7e3;
+  border-radius: 999px;
+  color: #d0312d;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 1.1rem;
+  font-weight: 800;
+  height: 42px;
+  justify-content: center;
+  width: 42px;
 }
 
-.finale-summary-dual-box__value {
-  color: #1b2e5e;
-  font-size: 0.9rem;
-  line-height: 1.35;
+.finale-summary-stat__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.finale-summary-stat__value {
+  color: #c5372f;
+  font-size: clamp(1.2rem, 1.8vw, 1.6rem);
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 0;
   word-break: break-word;
 }
 
-.finale-summary-grid {
-  display: grid;
-  gap: 8px;
-}
-
-.finale-summary-tile {
-  background: #fff;
-  border: 1px solid #e3d7c8;
-  border-radius: 8px;
-  display: grid;
-  gap: 4px;
-  min-height: 56px;
-  padding: 9px;
-}
-
-.finale-summary-tile span {
-  color: #6b7280;
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+.finale-summary-stat__label {
+  color: #5f6473;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin: 0;
   text-transform: uppercase;
 }
 
-.finale-summary-tile strong {
-  color: #1b2e5e;
-  font-size: 0.9rem;
-  line-height: 1.35;
+.finale-summary-meaning {
+  align-items: baseline;
+  border-top: 1px solid #eee4d8;
+  color: #334155;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  gap: 10px;
+  line-height: 1.5;
+  margin: 0;
+  padding-top: 10px;
 }
 
-.finale-summary-meaning {
-  border-left: 3px solid rgba(59, 111, 143, 0.45);
-  color: #334155;
-  font-size: 0.8rem;
-  line-height: 1.48;
-  margin: 2px 0 0;
-  padding-left: 10px;
+.finale-summary-meaning__label-wrap {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.finale-summary-meaning__icon {
+  align-items: center;
+  background: #fee9b5;
+  border: 1px solid rgba(217, 119, 6, 0.28);
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px rgba(254, 233, 181, 0.45);
+  color: #8a5a00;
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.finale-summary-meaning__icon :deep(svg) {
+  color: inherit;
+}
+
+.finale-summary-meaning__label {
+  color: #14254f;
+  font-size: 0.74rem;
+  font-weight: 800;
 }
 
 .sim-copy--final .final-outcome-heading {
-  font-size: 1.12rem;
+  font-size: clamp(1.55rem, 2.55vw, 2.02rem);
   margin: 0;
 }
 
@@ -3858,15 +4379,12 @@ details[open] > .disclosure-summary .disclosure-chevron {
 
 .sim-shell-fade-enter-active,
 .sim-shell-fade-leave-active {
-  transition:
-    opacity 0.22s ease,
-    transform 0.22s ease;
+  transition: opacity 0.18s ease;
 }
 
 .sim-shell-fade-enter-from,
 .sim-shell-fade-leave-to {
   opacity: 0;
-  transform: translateY(6px) scale(0.995);
 }
 @keyframes tiny-shake {
   0% {
@@ -4068,12 +4586,41 @@ details[open] > .disclosure-summary .disclosure-chevron {
   max-width: 100%;
 }
 
+.local-pane-fade {
+  animation: localPaneFadeIn 180ms ease both;
+}
+
+@keyframes localPaneFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .sim {
   max-width: 100%;
   overflow-x: hidden;
 }
 
+@media (min-width: 861px) {
+  .sim:not(.sim--fullscreen) .sim-wrapper {
+    display: flex;
+    justify-content: center;
+  }
+
+  .sim:not(.sim--fullscreen) .sim-card--walkthrough {
+    max-width: min(100%, calc(100vh - 56px));
+    width: 100%;
+  }
+}
+
 @media (max-width: 767px) {
+  .walkthrough-canvas-head {
+    display: none;
+  }
+
   .sim-card--intro {
     grid-template-columns: minmax(0, 1fr);
     min-height: auto;
@@ -4543,12 +5090,65 @@ details[open] > .disclosure-summary .disclosure-chevron {
     white-space: normal;
   }
 
-  .finale-summary-dual-box {
-    grid-template-columns: 1fr;
+  .sim-card--finale .sim-copy--final {
+    max-width: 100%;
+    padding: 14px 14px 16px;
   }
 
-  .finale-summary-dual-box__divider {
-    display: none;
+  .finale-celebration {
+    gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 14px;
+  }
+
+  .coach-three-column {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .coach-mini-card + .coach-mini-card {
+    border-left: 0;
+    border-top: 1px solid #ece2d5;
+  }
+
+  .finale-action-checklist {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .finale-action-checklist__label {
+    border-bottom: 1px dashed #ddd2c2;
+    border-right: 0;
+    padding: 10px 12px;
+  }
+
+  .finale-action-checklist__items {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .finale-action-item {
+    border-right: 0;
+    border-top: 1px solid #eee4d8;
+    min-height: 62px;
+  }
+
+  .finale-action-item:first-child {
+    border-top: 0;
+  }
+
+  .finale-insights-report {
+    padding: 12px;
+  }
+
+  .finale-insights-report__top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .finale-insights-report__title {
+    font-size: 1.38rem;
+  }
+
+  .finale-insights-type-tabs {
+    flex-wrap: wrap;
+    gap: 12px;
   }
 
   .finale-age-spotlight__row {
@@ -4582,9 +5182,9 @@ details[open] > .disclosure-summary .disclosure-chevron {
   }
 
   .finale-insights-type-tab {
-    font-size: 0.7rem;
-    min-height: 28px;
-    padding: 4px 8px;
+    font-size: 0.82rem;
+    min-height: 0;
+    padding: 4px 0 6px;
   }
 
   .finale-insights-block :deep(.dual-trend-chart) {
@@ -4597,6 +5197,19 @@ details[open] > .disclosure-summary .disclosure-chevron {
     height: 280px;
     max-height: 280px;
     min-height: 280px;
+  }
+
+  .finale-summary-stats-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .finale-summary-stat {
+    border-right: 0;
+    border-top: 1px solid #eee4d8;
+  }
+
+  .finale-summary-stat:first-child {
+    border-top: 0;
   }
 }
 
@@ -4652,13 +5265,13 @@ details[open] > .disclosure-summary .disclosure-chevron {
   }
 
   .finale-insights-type-tabs {
-    gap: 5px;
+    gap: 10px;
   }
 
   .finale-insights-type-tab {
-    font-size: 0.66rem;
-    min-height: 26px;
-    padding: 3px 7px;
+    font-size: 0.74rem;
+    min-height: 0;
+    padding: 3px 0 5px;
   }
 
   .sim-wrapper {
@@ -4668,6 +5281,30 @@ details[open] > .disclosure-summary .disclosure-chevron {
   .sim-card--finale .sim-copy--final,
   .sim-card--walkthrough .sim-copy--scene {
     padding: 12px;
+  }
+
+  .finale-coach-kicker {
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+  }
+
+  .coach-mini-card__title {
+    font-size: 0.94rem;
+  }
+
+  .coach-mini-card__text,
+  .finale-action-item__text {
+    font-size: 0.84rem;
+  }
+
+  .finale-action-item__title {
+    font-size: 0.96rem;
+  }
+
+  .actions--finale .primary,
+  .actions--finale .secondary {
+    min-width: 0;
+    width: 100%;
   }
 
   .ai-coach-checklist__item {
@@ -4702,4 +5339,5 @@ details[open] > .disclosure-summary .disclosure-chevron {
   }
 }
 </style>
+
 

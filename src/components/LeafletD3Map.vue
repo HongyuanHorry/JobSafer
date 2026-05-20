@@ -792,16 +792,26 @@ onBeforeUnmount(() => {
 
 .state-ranking-item {
   animation: rankRowIn 380ms ease both;
-  align-items: center;
+  align-items: start;
   background: transparent;
   border: 0;
-  border-bottom: 1px solid #e3d7c8;
   border-radius: 0;
   display: grid;
   gap: 8px;
   grid-template-columns: 32px minmax(0, 1fr) auto;
-  min-height: 56px;
-  padding: 8px 4px;
+  min-height: 66px;
+  padding: 10px 4px 12px;
+  position: relative;
+}
+
+.state-ranking-item::after {
+  background: #e3d7c8;
+  bottom: 0;
+  content: '';
+  height: 1px;
+  left: 0;
+  position: absolute;
+  right: 0;
 }
 
 .state-ranking-item:nth-child(1) {
@@ -848,8 +858,8 @@ onBeforeUnmount(() => {
   }
 }
 
-.state-ranking-item:last-child {
-  border-bottom: 0;
+.state-ranking-item:last-child::after {
+  display: none;
 }
 
 .state-ranking-item__rank {
@@ -878,6 +888,7 @@ onBeforeUnmount(() => {
 }
 
 .risk-pill {
+  align-self: center;
   border-radius: 999px;
   font-size: 0.74rem;
   font-weight: 800;
@@ -1079,4 +1090,3 @@ onBeforeUnmount(() => {
   }
 }
 </style>
-

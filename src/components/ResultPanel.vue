@@ -933,6 +933,11 @@ onBeforeUnmount(() => {
   border-left-color: #b45309;
 }
 
+.analysis-channel--message .evidence-quote {
+  font-size: 13px;
+  line-height: 1.76;
+}
+
 .evidence-url {
   color: #1a1a2a;
   font-family:

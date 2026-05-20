@@ -5,9 +5,12 @@ import {
   ArrowRight,
   BookHeart,
   BookOpen,
+  ClipboardList,
   HeartHandshake,
   HeartPulse,
   LifeBuoy,
+  ListChecks,
+  Lock,
   ShieldCheck,
 } from 'lucide-vue-next'
 import ResultPanel from './components/ResultPanel.vue'
@@ -104,7 +107,7 @@ const heroParticleState = {
 const topActions = [
   { label: 'Suspicious message', mode: 'text', action: 'open-check' },
   { label: 'Upload job PDF', mode: 'pdf', action: 'open-check' },
-  { label: 'Verify recruiter', mode: 'link', action: 'open-check' },
+  { label: 'Verify recruiter', mode: 'abn', action: 'open-check' },
 ]
 
 const primarySections = [
@@ -122,6 +125,7 @@ const learnScenarioOptions = [
 
 const quickTips = [
   {
+    tag: 'Warning signs',
     title: 'Task scam warning signs',
     summary: 'Fast red flags for step-by-step simple task scams and fake commission loops.',
     href: 'https://www.scamwatch.gov.au/types-of-scams/jobs-and-employment-scams',
@@ -131,6 +135,7 @@ const quickTips = [
     fallback: '/icons/StepSafeIcon.png',
   },
   {
+    tag: 'Beginner guide',
     title: 'How to spot fake remote jobs',
     summary: 'FTC guidance for fake checks, upfront fee traps, and high-pay low-effort bait.',
     href: 'https://consumer.ftc.gov/articles/job-scams',
@@ -140,6 +145,7 @@ const quickTips = [
     fallback: '/icons/StepSafeIcon.png',
   },
   {
+    tag: 'Quick read',
     title: 'Unicorn job scams in Australia',
     summary: 'AFP coverage of job scams targeting vulnerable Australians who are looking for work.',
     href: 'https://www.afp.gov.au/news-centre/media-release/unicorn-job-scams-criminals-target-vulnerable-aussies-looking-work',
@@ -152,6 +158,7 @@ const quickTips = [
 
 const learningCards = [
   {
+    tag: 'News report',
     title: "Employment scams are on the rise. Here's what to look out for",
     summary: 'Coverage of warning signs and recent scam growth trends in Australia.',
     href: 'https://www.sbs.com.au/news/article/employment-scams-are-on-the-rise-heres-what-to-look-out-for/2xgyuapu0',
@@ -161,6 +168,7 @@ const learningCards = [
     fallback: '/icons/StepSafeIcon.png',
   },
   {
+    tag: 'Explainer',
     title: "'An elaborate ruse': The scam that's surging in Australia",
     summary: 'Explainer on task scam mechanics and how to protect yourself from losses.',
     href: 'https://www.sbs.com.au/news/article/an-elaborate-ruse-the-scam-thats-surging-in-australia-and-how-to-protect-yourself/fxvbsllo7',
@@ -170,6 +178,7 @@ const learningCards = [
     fallback: '/icons/StepSafeIcon.png',
   },
   {
+    tag: 'Case study',
     title: 'Sam thought he had a marketing job - it was actually a task-based scam',
     summary: 'Case study with concrete red flags from a real task-based scam timeline.',
     href: 'https://www.abc.net.au/news/2025-07-26/employment-scams-work-marketing-messages/105089062',
@@ -214,21 +223,25 @@ const statsEvidenceNote =
 
 const howItWorksSteps = [
   {
-    number: '1',
-    title: 'Check Scam',
-    description:
-      'Upload a message, PDF, or link. Get a quick risk alert with key red flags highlighted.',
+    number: 1,
+    title: 'Check',
+    description: 'Paste a message or job ad. Get an instant risk verdict.',
+    sectionId: CHECK_SCAM_TARGET_ID,
+    icon: ClipboardList,
   },
   {
-    number: '2',
+    number: 2,
     title: 'Learn',
-    description:
-      'Try realistic scam scenarios to spot your weak points and practice safer decisions.',
+    description: "See what's suspicious and get clear guidance.",
+    sectionId: 'learn-section',
+    icon: ListChecks,
   },
   {
-    number: '3',
-    title: 'Support',
-    description: 'Support resources are coming soon to help you take action fast.',
+    number: 3,
+    title: 'Stay safe',
+    description: 'Follow personalised steps to protect your money and report with confidence.',
+    sectionId: 'support-section',
+    icon: ShieldCheck,
   },
 ]
 
@@ -579,8 +592,7 @@ function handleQuizComplete(payload) {
   learnQuizResult.value = payload
   learnStep.value = 'quiz_result'
   persistLearnState({ step: 'quiz_result', scamType: payload.type, quizResult: payload })
-  // Scroll to the same position as clicking "Learn" in the nav bar
-  setTimeout(() => scrollToSection('learn-section'), 450)
+  scrollToLearnNavAnchorAfterRender()
 }
 
 function persistLearnState(update) {
@@ -661,6 +673,15 @@ function startWalkthroughFromLearnFullscreenPrompt() {
   startWalkthroughDirectly()
 }
 
+function scrollToLearnNavAnchorAfterRender() {
+  nextTick(() => {
+    scrollToSection('learn-section', 'auto')
+    window.setTimeout(() => {
+      scrollToSection('learn-section', 'auto')
+    }, LEARN_SCROLL_SETTLE_MS)
+  })
+}
+
 function startLearnQuiz() {
   learnStep.value = 'quiz'
   persistLearnState({ step: 'quiz' })
@@ -681,14 +702,14 @@ function startWalkthroughDirectly() {
   learnStep.value = 'walkthrough'
   resetSimulatorPersonalSummary()
   persistLearnState({ step: 'walkthrough', quizResult: null })
-  scrollToLearnAfterRender(LEARN_BUTTON_EXTRA_GAP)
+  scrollToLearnNavAnchorAfterRender()
 }
 
 function openWalkthroughFromQuiz() {
   learnStep.value = 'walkthrough'
   resetSimulatorPersonalSummary()
   persistLearnState({ step: 'walkthrough' })
-  scrollToLearnAfterRender(LEARN_BUTTON_EXTRA_GAP)
+  scrollToLearnNavAnchorAfterRender()
 }
 
 function backToWorkflowChoice() {
@@ -714,7 +735,7 @@ const resultPanelMessagePlain = computed(() => {
 
 let revealObserver = null
 
-function scrollToSection(sectionId) {
+function scrollToSection(sectionId, behavior = 'smooth') {
   const remap = {
     'learn-section': 'learn-core-anchor',
     'check-section': 'check-scam-panel',
@@ -731,7 +752,11 @@ function scrollToSection(sectionId) {
   const top =
     getStaticOffsetTop(node) - headerHeight - stickyTopInset - NAV_SCROLL_GAP - NAV_SCROLL_LIFT
 
-  window.scrollTo({ top, behavior: 'smooth' })
+  if (behavior === 'smooth') {
+    window.scrollTo({ top, behavior: 'smooth' })
+    return
+  }
+  window.scrollTo(0, top)
 }
 
 function setLearnScenario(typeKey) {
@@ -767,6 +792,7 @@ function onQuickCheckModalClose() {
   if (quickCheckTargetKey.value) {
     setLearnScenario(quickCheckTargetKey.value)
     quickCheckTargetKey.value = ''
+    startWalkthroughDirectly()
   }
 }
 
@@ -797,7 +823,7 @@ function buildOfflineCoachInsights({ history = [], highPressure = false }) {
 
   const paragraph = highPressure
     ? `Compliance kept narrowing before proof arrived - lean on slower verification next time scripts heat up.`
-    : `You stayed in the cautious lane repeatedly - that inertia is exactly what scripted hustles expect you to ditch.`
+    : `Too easy cash onboarding still builds a dossier about you even when you dodge fees.`
 
   const topRisk = firstRisk?.riskReason
     ? `${firstRisk.riskReason}`.slice(0, 220).replace(/\.$/, '')
@@ -820,6 +846,29 @@ function buildOfflineCoachInsights({ history = [], highPressure = false }) {
     topRisk,
     nextAction,
     tone: highPressure ? 'steady-guardrails' : 'confident-grounding',
+  }
+}
+
+function clampWords(text, maxWords) {
+  const clean = String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!clean) return ''
+  const words = clean.split(' ')
+  if (words.length <= maxWords) return clean
+  return words.slice(0, maxWords).join(' ')
+}
+
+function alignCoachToOfflineLimits(aiPack, offlinePack) {
+  const offlineSummaryWords = Math.max(10, clampWords(offlinePack.paragraph, 999).split(' ').length)
+  const offlineTopRiskWords = Math.max(8, clampWords(offlinePack.topRisk, 999).split(' ').length)
+  const offlineNextWords = Math.max(8, clampWords(offlinePack.nextAction, 999).split(' ').length)
+
+  return {
+    paragraph: clampWords(aiPack.paragraph, offlineSummaryWords),
+    topRisk: clampWords(aiPack.topRisk, offlineTopRiskWords),
+    nextAction: clampWords(aiPack.nextAction, offlineNextWords),
+    tone: String(aiPack.tone || '').trim().slice(0, 36),
   }
 }
 
@@ -881,10 +930,11 @@ async function markScenarioCompleted(payload) {
   let summarySource = 'idle'
 
   /** @type {{ paragraph: string, topRisk: string, nextAction: string, tone: string }} */
-  let aiCoachPack = buildOfflineCoachInsights({
+  const offlineCoachPack = buildOfflineCoachInsights({
     history: sanitizedHistory,
     highPressure: Boolean(payload?.highPressure),
   })
+  let aiCoachPack = { ...offlineCoachPack }
 
   /** @type {string} */
   let hesitationInsightOut = buildOfflineHesitationInsight(interactionTimingSanitized)
@@ -912,12 +962,13 @@ async function markScenarioCompleted(payload) {
       })
 
       if (aiResult.ok && aiResult.data?.summary) {
-        aiCoachPack = {
+        const rawAiPack = {
           paragraph: String(aiResult.data.summary || '').trim(),
           topRisk: String(aiResult.data.topRisk || '').trim(),
           nextAction: String(aiResult.data.nextAction || '').trim(),
           tone: String(aiResult.data.tone || '').trim(),
         }
+        aiCoachPack = alignCoachToOfflineLimits(rawAiPack, offlineCoachPack)
         const fromModel = String(aiResult.data.hesitationInsight ?? '').trim()
         hesitationInsightOut =
           fromModel || buildOfflineHesitationInsight(interactionTimingSanitized)
@@ -934,10 +985,7 @@ async function markScenarioCompleted(payload) {
             ? aiResult.detail.trim()
             : ''
         aiSummaryError = formatCoachApiError(reason, detail)
-        aiCoachPack = buildOfflineCoachInsights({
-          history: sanitizedHistory,
-          highPressure: Boolean(payload?.highPressure),
-        })
+        aiCoachPack = { ...offlineCoachPack }
         hesitationInsightOut = buildOfflineHesitationInsight(interactionTimingSanitized)
         aiSummaryText = aiCoachPack.paragraph
         summarySource = 'fallback'
@@ -946,10 +994,7 @@ async function markScenarioCompleted(payload) {
       const msg =
         err instanceof Error && err.message ? err.message.trim() : String(err || '').trim()
       aiSummaryError = formatCoachApiError('exception', msg)
-      aiCoachPack = buildOfflineCoachInsights({
-        history: sanitizedHistory,
-        highPressure: Boolean(payload?.highPressure),
-      })
+      aiCoachPack = { ...offlineCoachPack }
       hesitationInsightOut = buildOfflineHesitationInsight(interactionTimingSanitized)
       aiSummaryText = aiCoachPack.paragraph
       summarySource = 'fallback'
@@ -1051,10 +1096,12 @@ function navigateToSection(sectionId) {
   if (pageFadeTimer) {
     clearTimeout(pageFadeTimer)
   }
+  window.setTimeout(() => {
+    scrollToSection(sectionId, 'auto')
+  }, 160)
   pageFadeTimer = window.setTimeout(() => {
     isPageFading.value = false
-  }, 200)
-  scrollToSection(sectionId)
+  }, 440)
 }
 
 function handleFooterProductNavigation(item) {
@@ -1073,17 +1120,15 @@ function goToCheckScam() {
 }
 
 function navigateToHowStep(stepNumber) {
-  const sectionMap = {
-    1: null,
-    2: 'learn-section',
-    3: 'support-section',
-  }
-  if (stepNumber === '1') {
+  const selectedStep = howItWorksSteps.find((step) => Number(step.number) === Number(stepNumber))
+  if (!selectedStep?.sectionId) return
+
+  if (selectedStep.sectionId === CHECK_SCAM_TARGET_ID) {
     goToCheckScam()
-  } else {
-    const id = sectionMap[stepNumber]
-    if (id) navigateToSection(id)
+    return
   }
+
+  navigateToSection(selectedStep.sectionId)
 }
 
 function externalAriaLabel(label) {
@@ -2025,7 +2070,7 @@ async function unlockSite() {
         <div class="container-shell hero-band__inner">
           <div class="hero-copy">
             <p class="hero-eyebrow">
-              JobSafer - we help you pause before you pay or share anything
+              We help you pause before you pay or share anything
             </p>
             <h1 class="hero-title-kinetic">
               Spot job
@@ -2038,31 +2083,20 @@ async function unlockSite() {
               before they cost you.
             </h1>
             <p class="hero-summary copy-block">
-              All scams follow patterns, you are not alone in this.
+              Every scam comes with patterns. We help you spot them early, act with confidence,
+              and recover if something goes wrong.
             </p>
             <div class="hero-tags" aria-label="Common scam angles JobSafer helps with">
               <span>Task scams</span>
               <span>Fake recruiters</span>
               <span>Upfront fee traps</span>
             </div>
-            <div class="hero-actions">
-              <a
-                class="cta-primary cta-primary--solid"
-                href="#check-section"
-                @click.prevent="goToCheckScam"
-              >
-                Check scam now
-                <ArrowRight :size="16" aria-hidden="true" />
-              </a>
-              <button
-                type="button"
-                class="cta-primary cta-primary--secondary"
-                @click="navigateToSection('learn-section')"
-              >
-                Try the simulator
-              </button>
-            </div>
-            <p class="hero-free-note">Free &amp; open to everyone - No sign-up needed</p>
+            <p class="hero-free-note">
+              <ShieldCheck :size="14" aria-hidden="true" />
+              <span>Free &amp; open to everyone</span>
+              <span class="hero-free-note__dot" aria-hidden="true">|</span>
+              <span>No sign-up needed</span>
+            </p>
           </div>
           <div class="hero-art" aria-hidden="true">
             <div class="hero-orb hero-orb--a"></div>
@@ -2089,8 +2123,73 @@ async function unlockSite() {
       </section>
 
       <section
+        class="home-preview scene-panel scene-panel--raise snap-stage section-fade section-fade--hero reveal-on-scroll"
+        aria-label="Scam check preview"
+      >
+        <div class="home-preview-card">
+          <article class="home-preview-pane home-preview-pane--message">
+            <p class="home-preview-pane__kicker">Scam check preview</p>
+            <div class="home-preview-quote-stack">
+              <p class="home-preview-quote home-preview-quote--lead">
+                <span>Earn </span>
+                <mark>$200 daily</mark>
+                <span> with </span>
+                <mark>simple tasks</mark>
+                <span> and easy money.</span>
+                <span class="home-preview-quote__line-break" aria-hidden="true"></span>
+                <span>To activate your account and unlock payout, </span>
+                <mark>transfer</mark>
+                <span> the onboarding fee now and complete payment </span>
+                <mark>immediately</mark>
+                <span>.</span>
+              </p>
+            </div>
+          </article>
+
+          <article class="home-preview-pane home-preview-pane--score">
+            <p class="home-preview-pane__kicker">Risk score</p>
+            <div class="home-preview-score-inline__gauge">
+              <svg
+                class="home-preview-score-arc"
+                viewBox="0 -18 240 170"
+                role="img"
+                aria-label="Risk score 100 out of 100"
+              >
+                <path class="home-preview-score-arc__track" d="M8 114 A106 106 0 0 1 232 114" pathLength="100"></path>
+                <path
+                  class="home-preview-score-arc__progress"
+                  d="M8 114 A106 106 0 0 1 232 114"
+                  pathLength="100"
+                ></path>
+                <g class="home-preview-score-svg__text" transform="translate(130 98)">
+                  <text class="home-preview-score-svg__value" text-anchor="end">100</text>
+                  <text class="home-preview-score-svg__unit" x="20" y="-2" text-anchor="start">/100</text>
+                </g>
+              </svg>
+            </div>
+            <p class="home-preview-score__label">Severe concern</p>
+          </article>
+
+          <article class="home-preview-pane home-preview-pane--action">
+            <p class="home-preview-pane__kicker">Priority action</p>
+            <p class="home-preview-alert">
+              <span class="home-preview-alert__icon" aria-hidden="true">!</span>
+              <span>
+                <strong>Stop here, don't pay anything.</strong>
+                Verify the business through official channels.
+              </span>
+            </p>
+            <button type="button" class="cta-primary cta-primary--solid home-preview-cta-btn" @click="goToCheckScam">
+              <span>Check scam now</span>
+              <ArrowRight :size="16" aria-hidden="true" />
+            </button>
+          </article>
+        </div>
+      </section>
+
+      <section
         ref="statsBandRef"
-        class="stats-strip scene-panel scene-panel--raise scene-panel--alert snap-stage section-fade section-fade--stats reveal-on-scroll"
+        class="stats-strip scene-panel scene-panel--raise scene-panel--alert snap-stage section-fade section-fade--stats"
         aria-label="Scam impact stats"
       >
         <div class="container-shell stats-strip__inner">
@@ -2113,40 +2212,55 @@ async function unlockSite() {
       </section>
 
       <section
-        class="how-it-works scene-panel scene-panel--raise snap-stage section-c section-fade section-fade--how"
+        class="how-it-works how-it-works-strip scene-panel snap-stage section-c section-fade section-fade--how"
       >
         <div class="container-shell">
-          <div class="how-heading-wrap reveal-on-scroll reveal-soft">
-            <p class="scene-kicker">Scam journey map</p>
-            <h2 class="section-title">How JobSafer Works</h2>
-          </div>
-          <p class="how-copy">
-            You can start anywhere.
-            <span class="how-copy__em how-copy__em--check">Check Scam</span>,
-            <span class="how-copy__em how-copy__em--learn">Learn</span>, and
-            <span class="how-copy__em how-copy__em--support">Support</span>
-            work together to <span class="how-copy__nowrap">keep you safer.</span>
-          </p>
-          <div class="how-workflow-panel">
-            <div class="how-grid">
-              <article
-                v-for="step in howItWorksSteps"
-                :key="step.number"
-                class="how-step reveal-on-scroll reveal-soft"
-                :class="`how-step--${step.number}`"
-                :style="{ '--reveal-delay': `${(Number(step.number) - 1) * 150}ms` }"
-                role="button"
-                tabindex="0"
-                :aria-label="`Go to ${step.title} section`"
-                @click="navigateToHowStep(step.number)"
-                @keydown.enter.prevent="navigateToHowStep(step.number)"
-              >
-                <p class="how-step__number" :data-step="step.number">{{ step.number }}</p>
-                <h3>{{ step.title }}</h3>
-                <p>{{ step.description }}</p>
-                <p v-if="step.hint" class="how-step__hint">{{ step.hint }}</p>
-                <span class="how-step__nav-hint" aria-hidden="true">Go to {{ step.title }} -></span>
-              </article>
+          <div class="how-journey">
+            <p class="how-journey__kicker">HOW JOBSAFER WORKS</p>
+            <div class="how-journey__row">
+              <ol class="how-journey__steps" role="list" aria-label="JobSafer workflow">
+                <li
+                  v-for="(step, stepIndex) in howItWorksSteps"
+                  :key="step.number"
+                  class="how-journey-step reveal-on-scroll reveal-soft"
+                  :class="`how-journey-step--${step.number}`"
+                  role="button"
+                  tabindex="0"
+                  :aria-label="`Go to ${step.title} section`"
+                  @click="navigateToHowStep(step.number)"
+                  @keydown.enter.prevent="navigateToHowStep(step.number)"
+                >
+                  <span class="how-journey-step__icon" aria-hidden="true">
+                    <component :is="step.icon" :size="26" />
+                  </span>
+                  <div class="how-journey-step__copy">
+                    <p class="how-journey-step__title">{{ step.number }}. {{ step.title }}</p>
+                    <p class="how-journey-step__desc">{{ step.description }}</p>
+                  </div>
+                  <span
+                    v-if="stepIndex < howItWorksSteps.length - 1"
+                    class="how-journey-step__arrow"
+                    aria-hidden="true"
+                  >
+                    <ArrowRight class="how-journey-step__arrow-icon" :size="16" :stroke-width="1.8" />
+                  </span>
+                </li>
+              </ol>
+              <aside class="how-journey-cta" aria-label="Start simulator">
+                <p class="how-journey-cta__question">Ready to see through scams?</p>
+                <button
+                  type="button"
+                  class="cta-primary how-journey-cta__button"
+                  @click="scrollToSection('learn-section')"
+                >
+                  Start simulator
+                  <ArrowRight :size="16" aria-hidden="true" />
+                </button>
+                <p class="how-journey-cta__free">
+                  <Lock :size="12" aria-hidden="true" />
+                  <span>Free &amp; open to everyone</span>
+                </p>
+              </aside>
             </div>
           </div>
         </div>
@@ -2237,34 +2351,55 @@ async function unlockSite() {
                 and see exactly where things go wrong.
               </p>
             </div>
+            <p class="learn-hero__pill">{{ learnCompletedScenarioCount }} / 5 missions completed</p>
           </div>
 
           <div class="learn-flow-scroll">
             <div id="learn-workflow-anchor" class="learn-flow">
               <div v-if="learnStep === 'entry'" class="learn-entry">
-                <p class="learn-entry__eyebrow">Pick your mission</p>
-                <h4>Train with Alex</h4>
-                <p class="learn-entry__mission-subline">
-                  {{ learnCompletedScenarioCount }}/5 done. Keep learning to outsmart more scam types.
-                </p>
-                <div class="learn-scenario-grid" role="list" aria-label="Scam scenario options">
-                  <button
-                    v-for="option in learnScenarioOptions"
-                    :key="option.key"
-                    type="button"
-                    class="scenario-chip"
-                    :class="{ 'scenario-chip--active': learnScamType === option.key }"
-                    @click="requestLearnScenario(option.key)"
-                  >
-                    <span class="scenario-chip__label">
-                      <b>{{ option.label }}</b>
-                      <i aria-hidden="true">{{ option.icon }}</i>
-                    </span>
-                    <em v-if="learnCompletion?.[option.key]?.completed" class="scenario-chip__done"
-                      >Done</em
-                    >
-                  </button>
+                <div class="learn-entry__top">
+                  <div>
+                    <p class="learn-entry__eyebrow">Mission rail</p>
+                    <h4>Train with Alex</h4>
+                    <p class="learn-entry__mission-subline">
+                      Choose one mission and practise the script before pressure escalates.
+                    </p>
+                  </div>
                 </div>
+
+                <div class="learn-entry__layout">
+                  <div class="learn-mission-rail" role="list" aria-label="Scam scenario options">
+                    <button
+                      v-for="option in learnScenarioOptions"
+                      :key="option.key"
+                      type="button"
+                      class="learn-mission-row"
+                      :class="{ 'learn-mission-row--active': learnScamType === option.key }"
+                      @click="requestLearnScenario(option.key)"
+                    >
+                      <span class="learn-mission-row__num" aria-hidden="true">{{ option.icon }}</span>
+                      <span class="learn-mission-row__title">{{ option.label }}</span>
+                      <span
+                        class="learn-mission-row__status"
+                        :class="{ 'learn-mission-row__status--done': learnCompletion?.[option.key]?.completed }"
+                      >
+                        {{ learnCompletion?.[option.key]?.completed ? 'Done' : 'Ready' }}
+                      </span>
+                    </button>
+                  </div>
+
+                  <aside class="learn-mission-preview" aria-label="Alex coach preview">
+                    <p class="learn-mission-preview__kicker">Alex coach preview</p>
+                    <h5>Today's training focus</h5>
+                    <p class="learn-mission-preview__risk">
+                      <span>Pressure tactic:</span> fake balance + urgency
+                    </p>
+                    <p class="learn-mission-preview__note">
+                      Learn how the script escalates before money is requested.
+                    </p>
+                  </aside>
+                </div>
+
                 <div class="learn-entry__actions">
                   <button class="learn-primary" type="button" @click="startWalkthroughDirectly">
                     Start walkthrough
@@ -2627,6 +2762,7 @@ async function unlockSite() {
                 >
                   <span class="resource-accent" aria-hidden="true"></span>
                   <div class="resource-main">
+                    <span class="resource-tag">{{ item.tag || 'Resource' }}</span>
                     <p class="resource-title">{{ item.title }}</p>
                     <p class="resource-copy">{{ item.summary }}</p>
                     <span class="resource-source">{{ item.source }}</span>
@@ -2674,6 +2810,7 @@ async function unlockSite() {
                 >
                   <span class="resource-accent" aria-hidden="true"></span>
                   <div class="resource-main">
+                    <span class="resource-tag">{{ item.tag || 'Update' }}</span>
                     <p class="resource-title">{{ item.title }}</p>
                     <p class="resource-copy">{{ item.summary }}</p>
                     <span class="resource-source">{{ item.source }}</span>
@@ -2922,7 +3059,10 @@ async function unlockSite() {
   position: relative;
   width: 100%;
   z-index: 1;
-  transition: opacity 0.2s ease;
+  transition:
+    opacity 0.34s ease,
+    filter 0.34s ease,
+    transform 0.34s ease;
 }
 
 /* Scene rhythm + rise-cover transitions */
@@ -2991,8 +3131,15 @@ async function unlockSite() {
   border-top-right-radius: 24px;
 }
 
+.scene-panel--simulator {
+  background: linear-gradient(180deg, #f4ede0 0%, #fcf7f1 100%);
+  padding: 64px 0;
+}
+
 .flow-wrapper--fading {
-  opacity: 0.86;
+  opacity: 0.45;
+  filter: blur(1.4px) saturate(0.9);
+  transform: translateY(6px);
 }
 
 .section-a {
@@ -3184,30 +3331,34 @@ async function unlockSite() {
 }
 
 .learn-hero {
-  margin-bottom: 24px;
-  padding: 0 4px;
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding: 0 2px;
 }
 
 .learn-hero__copy {
-  max-width: 680px;
+  max-width: 760px;
 }
 
 .learn-kicker-main {
-  color: #d8a24a;
+  color: #1b2e5e;
   font-size: 0.76rem;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.13em;
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   text-transform: uppercase;
 }
 
 .learn-wave-heading {
   color: #1b2e5e;
-  font-size: clamp(1.9rem, 3.6vw, 2.9rem);
+  font-size: clamp(1.8rem, 3.2vw, 2.35rem);
   font-weight: 800;
   letter-spacing: -0.02em;
-  line-height: 1.08;
-  margin: 0 0 14px;
+  line-height: 1.1;
+  margin: 0 0 10px;
 }
 
 .learn-wave-word {
@@ -3227,18 +3378,33 @@ async function unlockSite() {
 
 .learn-wave-word path {
   fill: none;
-  stroke: #7a9a82;
+  stroke: #d8a24a;
   stroke-linecap: round;
-  stroke-width: 4;
+  stroke-width: 3.2;
 }
 
 .learn-head-summary {
-  color: #5a5a5a;
-  font-size: 0.98rem;
-  line-height: 1.6;
+  color: #5b677f;
+  font-size: 0.94rem;
+  line-height: 1.5;
   margin: 0;
-  max-width: none;
+  max-width: 780px;
   text-wrap: pretty;
+  white-space: normal;
+}
+
+.learn-hero__pill {
+  align-self: flex-start;
+  background: #fff6df;
+  border: 1px solid #eadfce;
+  border-radius: 999px;
+  color: #1b2e5e;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  margin: 6px 0 0;
+  padding: 8px 12px;
   white-space: nowrap;
 }
 
@@ -3296,7 +3462,7 @@ async function unlockSite() {
 
 .learn-flow {
   display: grid;
-  gap: var(--ms-space-section-gap);
+  gap: 14px;
   width: 100%;
   max-width: 100%;
   margin-inline: auto;
@@ -3306,14 +3472,20 @@ async function unlockSite() {
 }
 
 .learn-entry {
-  background: #fcf7f1;
-  border: 1px solid #e3d7c8;
-  border-left: 5px solid #3b6f8f;
-  border-radius: 20px;
-  padding: 20px;
+  background: linear-gradient(180deg, #fcf7f1 0%, #f9f2e7 100%);
+  border: 1px solid #e7dac7;
+  border-radius: 12px;
+  padding: 16px;
   display: grid;
+  gap: 12px;
+  box-shadow: none;
+}
+
+.learn-entry__top {
+  align-items: start;
+  display: flex;
   gap: 14px;
-  box-shadow: 0 12px 24px rgba(27, 46, 94, 0.08);
+  justify-content: space-between;
 }
 
 .learn-entry__eyebrow {
@@ -3328,15 +3500,127 @@ async function unlockSite() {
 .learn-entry h4 {
   margin: 0;
   color: #1b2e5e;
-  font-size: var(--ms-type-title-md);
-  line-height: var(--ms-line-title-regular);
+  font-size: 1.12rem;
+  line-height: 1.25;
 }
 
-.learn-entry__intro {
+.learn-entry__mission-subline {
+  color: #5b677f;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  margin: 6px 0 0;
+}
+
+.learn-entry__layout {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 0.56fr);
+}
+
+.learn-mission-rail {
+  border-top: 1px solid rgba(27, 46, 94, 0.18);
+  display: grid;
+}
+
+.learn-mission-row {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(27, 46, 94, 0.16);
+  color: #1b2e5e;
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 46px;
+  padding: 8px 8px;
+  position: relative;
+  text-align: left;
+  width: 100%;
+}
+
+.learn-mission-row::after {
+  background: transparent;
+  content: '';
+  height: 2px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: -1px;
+}
+
+.learn-mission-row--active {
+  background: rgba(216, 162, 74, 0.12);
+}
+
+.learn-mission-row--active::after {
+  background: #d8a24a;
+}
+
+.learn-mission-row__num {
+  color: #2f5fa7;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.learn-mission-row__title {
+  color: #1b2e5e;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.learn-mission-row__status {
+  color: #5b677f;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.learn-mission-row__status--done {
+  color: #0f7e75;
+}
+
+.learn-mission-preview {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid #e7dac7;
+  border-radius: 10px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.learn-mission-preview__kicker {
+  color: #1b2e5e;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
   margin: 0;
-  color: #6b7280;
-  font-size: var(--ms-type-body-lg);
-  line-height: var(--ms-line-body-loose);
+  text-transform: uppercase;
+}
+
+.learn-mission-preview h5 {
+  color: #1b2e5e;
+  font-size: 0.98rem;
+  margin: 0;
+}
+
+.learn-mission-preview__risk {
+  color: #b72f2a;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.learn-mission-preview__risk span {
+  color: #1b2e5e;
+  font-weight: 800;
+}
+
+.learn-mission-preview__note {
+  color: #5b677f;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  margin: 0;
 }
 
 .learn-entry__progress {
@@ -3533,7 +3817,7 @@ async function unlockSite() {
 .learn-entry__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
 .sim-fs-modal {
@@ -3939,7 +4223,7 @@ async function unlockSite() {
 .top-strip {
   color: #1a1a2a;
   left: 0;
-  padding: 10px 0;
+  padding: 1px 0 0;
   position: fixed;
   right: 0;
   top: 0;
@@ -3948,10 +4232,10 @@ async function unlockSite() {
 
 .top-strip__inner {
   align-items: center;
-  background: rgba(252, 247, 241, 0.97);
-  border: 1px solid #e3d7c8;
-  border-radius: 18px;
-  box-shadow: 0 2px 8px rgba(59, 111, 143, 0.06);
+  background: rgba(252, 247, 241, 0.99);
+  border: 1px solid rgba(227, 215, 200, 0.9);
+  border-radius: 10px;
+  box-shadow: none;
   display: flex;
   gap: 14px;
   margin: 0 auto;
@@ -3959,12 +4243,12 @@ async function unlockSite() {
   min-height: 35px;
   padding: 4px 24px;
   position: relative;
-  transition: box-shadow 0.24s ease;
+  transition: border-color 0.2s ease;
   width: calc(100% - 96px);
 }
 
 .top-strip--elevated .top-strip__inner {
-  box-shadow: 0 8px 22px rgba(59, 111, 143, 0.14);
+  border-color: rgba(203, 188, 169, 0.92);
 }
 
 .brand-home {
@@ -4021,8 +4305,8 @@ async function unlockSite() {
 
 .top-nav-link:hover,
 .top-nav-link:focus-visible {
-  background: rgba(59, 111, 143, 0.08);
-  color: #3b6f8f;
+  background: transparent;
+  color: #1f4b96;
 }
 
 /* Active: navy text + mustard bottom-line, no filled pill */
@@ -4251,7 +4535,7 @@ async function unlockSite() {
 
 .hero-band {
   overflow: hidden;
-  padding: 82px 0 52px;
+  padding: 62px 0 20px;
   position: relative;
   isolation: isolate;
 }
@@ -4267,7 +4551,7 @@ async function unlockSite() {
 .hero-band__inner {
   display: grid;
   gap: 26px;
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  grid-template-columns: minmax(0, 1.22fr) minmax(300px, 0.78fr);
   position: relative;
   z-index: 1;
 }
@@ -4280,21 +4564,21 @@ async function unlockSite() {
 }
 
 .hero-eyebrow {
-  color: #3b6f8f;
-  font-size: 0.82rem;
+  color: #1b2e5e;
+  font-size: 0.76rem;
   font-weight: 800;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   margin: 0 0 18px;
   text-transform: uppercase;
 }
 
 h1 {
-  color: #1a1a2a;
-  font-size: clamp(3rem, 6vw, 64px);
+  color: #102553;
+  font-size: clamp(3rem, 5.6vw, 64px);
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   line-height: 1.04;
-  margin: 0 0 26px;
+  margin: 0 0 22px;
   max-width: 980px;
 }
 
@@ -4333,15 +4617,29 @@ h1 {
 }
 
 .hero-title-kinetic {
+  color: #121212;
   animation: heroHeadlineIn 620ms cubic-bezier(0.22, 1, 0.36, 1) 20ms both;
 }
 
 .hero-free-note {
-  color: #7a7a7a;
-  font-size: 0.8rem;
-  font-weight: 500;
+  align-items: center;
+  color: #6b7280;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.84rem;
+  font-weight: 600;
+  gap: 8px;
   letter-spacing: 0.02em;
   margin: 10px 0 0;
+}
+
+.hero-free-note :deep(svg) {
+  color: #6b7280;
+  flex: 0 0 auto;
+}
+
+.hero-free-note__dot {
+  color: #9ca3af;
 }
 
 .hero-highlight {
@@ -4349,11 +4647,11 @@ h1 {
 }
 
 .hero-summary {
-  color: #6b7280;
-  font-size: 1.05rem;
-  line-height: 1.65;
+  color: #4b5568;
+  font-size: 1.02rem;
+  line-height: 1.6;
   margin: 0 0 18px;
-  max-width: 540px;
+  max-width: 580px;
 }
 
 .hero-tags {
@@ -4364,12 +4662,13 @@ h1 {
 }
 
 .hero-tags span {
-  background: #eef2ff;
+  background: #eff3ff;
+  border: 1px solid rgba(27, 46, 94, 0.08);
   border-radius: 20px;
   color: #1b2e5e;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 13px;
 }
 
 .hero-actions {
@@ -4395,12 +4694,12 @@ h1 {
   display: inline-flex;
   font-family: inherit;
   gap: 8px;
-  font-size: 0.9rem;
+  font-size: 0.94rem;
   font-weight: 700;
   justify-content: center;
   line-height: 1.2;
-  min-height: 48px;
-  padding: 14px 24px;
+  min-height: 50px;
+  padding: 14px 26px;
   text-decoration: none;
   transition:
     background 0.2s ease,
@@ -4443,7 +4742,7 @@ h1 {
   background: transparent;
   display: flex;
   justify-content: center;
-  min-height: 300px;
+  min-height: 340px;
   pointer-events: none;
   padding: 8px;
   position: relative;
@@ -4460,20 +4759,20 @@ h1 {
 
 .hero-orb--a {
   animation: ambientDriftA 8.8s ease-in-out infinite;
-  background: radial-gradient(circle at 35% 35%, rgba(216, 164, 65, 0.44), rgba(216, 164, 65, 0));
-  height: 170px;
-  right: 34px;
-  top: 18px;
-  width: 170px;
+  background: radial-gradient(circle at 35% 35%, rgba(234, 194, 150, 0.55), rgba(234, 194, 150, 0));
+  height: 230px;
+  right: 28px;
+  top: -4px;
+  width: 230px;
 }
 
 .hero-orb--b {
   animation: ambientDriftB 10.4s ease-in-out infinite;
-  background: radial-gradient(circle at 55% 55%, rgba(139, 111, 246, 0.26), rgba(139, 111, 246, 0));
-  bottom: 10px;
-  height: 196px;
-  right: -24px;
-  width: 196px;
+  background: radial-gradient(circle at 55% 55%, rgba(242, 214, 180, 0.58), rgba(242, 214, 180, 0));
+  bottom: -8px;
+  height: 244px;
+  right: -34px;
+  width: 244px;
 }
 
 .hero-art__card {
@@ -4487,15 +4786,16 @@ h1 {
   overflow: visible;
   padding: 0;
   position: relative;
+  transform: translateY(-17px);
 }
 
 .hero-lottie {
   animation: heroFloat 5.4s ease-in-out infinite;
   display: block;
-  height: min(360px, 68vw);
-  transform: scale(1.9);
+  height: min(380px, 68vw);
+  transform: scale(1.715) translateY(-4px);
   transform-origin: center;
-  width: min(340px, 100%);
+  width: min(360px, 100%);
 }
 
 .hero-lottie-fallback {
@@ -4524,12 +4824,211 @@ h1 {
   width: 130px;
 }
 
+.home-preview {
+  background: #ffffff;
+  margin-top: -42px;
+  padding: 0;
+}
+
+.home-preview-card {
+  width: 100%;
+  background: #fcf7f1;
+  border: 1px solid #e3d7c8;
+  border-bottom: 0;
+  border-radius: 0;
+  display: grid;
+  gap: 0;
+  grid-template-columns: 1.7fr minmax(240px, 0.78fr) minmax(280px, 0.92fr);
+  overflow: hidden;
+}
+
+.home-preview-pane {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 18px;
+}
+
+.home-preview-pane + .home-preview-pane {
+  border-left: 1px solid #e3d7c8;
+}
+
+.home-preview-pane__kicker {
+  color: #4b5563;
+  font-size: 0.73rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.home-preview-quote-stack {
+  display: block;
+  gap: 0;
+  margin: 0;
+}
+
+.home-preview-quote {
+  color: #1f2937;
+  font-size: 0.88rem;
+  line-height: 2;
+  margin: 0;
+}
+
+.home-preview-quote__line-break {
+  display: block;
+  height: 0.08em;
+}
+
+.home-preview-quote--lead {
+  margin-top: 12px;
+  padding-left: 18px;
+  position: relative;
+  z-index: 0;
+}
+
+.home-preview-quote--lead::before {
+  color: rgba(156, 163, 175, 0.2);
+  content: '"';
+  font-size: 118px;
+  left: -8px;
+  line-height: 1;
+  position: absolute;
+  top: -42px;
+  z-index: -1;
+}
+
+.home-preview-quote mark {
+  background: #f8e38c;
+  border-radius: 6px;
+  color: #111827;
+  margin: 0 2px;
+  padding: 1px 4px;
+}
+
+.home-preview-score-inline__gauge {
+  justify-items: center;
+  margin-top: 0;
+  overflow: visible;
+  padding-top: 6px;
+  width: 100%;
+}
+
+.home-preview-score-arc {
+  display: block;
+  height: auto;
+  max-width: 190px;
+  overflow: visible;
+  transform: translateY(-8px);
+  width: 100%;
+}
+
+.home-preview-score-arc__track {
+  fill: none;
+  stroke: #dfe5ef;
+  stroke-width: 11;
+}
+
+.home-preview-score-arc__progress {
+  fill: none;
+  stroke: #c5372f;
+  stroke-dasharray: 100 100;
+  stroke-dashoffset: 0;
+  stroke-linecap: round;
+  stroke-width: 11;
+}
+
+.home-preview-score-svg__text {
+  fill: #c5372f;
+}
+
+.home-preview-score-svg__value {
+  font-size: 52px;
+  font-weight: 800;
+  letter-spacing: -1.6px;
+}
+
+.home-preview-score-svg__unit {
+  fill: #6b7280;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.home-preview-score__label {
+  color: #c5372f;
+  font-size: 0.94rem;
+  font-weight: 700;
+  margin: -22px 0 0;
+}
+
+.home-preview-pane--score {
+  justify-items: center;
+}
+
+.home-preview-pane--message {
+  gap: 6px;
+}
+
+@media (min-width: 761px) {
+  .home-preview-pane--message .home-preview-quote-stack {
+    margin-top: 4px;
+  }
+}
+
+.home-preview-pane--action {
+  padding-top: 6px;
+}
+
+.home-preview-alert {
+  align-items: flex-start;
+  color: #374151;
+  display: grid;
+  font-size: 0.72rem;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr);
+  line-height: 1.48;
+  margin: -4px 0 0;
+}
+
+.home-preview-alert strong {
+  color: #c5372f;
+}
+
+.home-preview-alert__icon {
+  align-items: center;
+  background: #d0312d;
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  font-size: 1.02rem;
+  font-weight: 900;
+  height: 30px;
+  justify-content: center;
+  line-height: 1;
+  width: 30px;
+}
+
+.home-preview-cta-btn {
+  align-self: start;
+  margin-top: -10px;
+  min-height: 50px;
+  padding: 12px 24px;
+}
+
+.home-preview-cta-btn:hover,
+.home-preview-cta-btn:focus-visible {
+  background: #152952;
+  border-color: #152952;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
 .stats-strip {
   background: #d0312d;
-  border-top: 4px solid #d0312d;
-  border-radius: 16px 16px 0 0;
+  border-top: 0;
+  border-radius: 0;
   color: #ffffff;
-  margin-top: 0;
+  margin-top: -12px;
   overflow: hidden;
   position: relative;
   z-index: 4;
@@ -4551,7 +5050,7 @@ h1 {
   gap: 12px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   padding-bottom: 22px;
-  padding-top: 22px;
+  padding-top: 32px;
   position: relative;
   z-index: 1;
 }
@@ -4564,6 +5063,7 @@ h1 {
   max-width: 1280px;
   padding: 0 28px 24px;
   position: relative;
+  text-align: center;
   word-break: break-word;
   z-index: 1;
 }
@@ -4598,242 +5098,206 @@ h1 {
 }
 
 .how-it-works {
-  background: #ffffff;
-  padding: 64px 0 64px;
-}
-
-.how-it-works > .container-shell {
-  background: #ffffff;
-  border: 1px solid #e3d7c8;
-  border-radius: 22px;
-  box-shadow: none;
-  padding: 28px 28px 24px;
-}
-
-.how-it-works .section-title {
-  color: #1b2e5e;
-}
-
-.how-it-works .section-title::after {
-  background: #d8a24a;
-}
-
-.how-workflow-panel {
   background: #fcf7f1;
-  border: 1px solid #e3d7c8;
-  border-radius: 16px;
-  margin-top: 16px;
-  padding: 18px 18px 16px;
-  position: relative;
+  border-top: 3px solid #d0312d;
+  margin-top: 36px;
+  padding: 28px 0 32px;
 }
 
-.how-grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  position: relative;
-}
-
-.how-grid::before,
-.how-grid::after {
-  content: '';
-  left: 34px;
-  pointer-events: none;
-  position: absolute;
-  right: 34px;
-  top: 35px;
-  z-index: 0;
-}
-
-.how-copy {
-  color: #2b2b2b;
-  font-size: 0.98rem;
-  line-height: 1.6;
-  margin: 0 0 16px;
-  max-width: none;
-  text-wrap: pretty;
-  white-space: nowrap;
-}
-
-.how-copy__em {
-  font-weight: 800;
-}
-
-.how-copy__em--check {
-  color: #1b2e5e;
-}
-
-.how-copy__em--learn {
-  color: #1b2e5e;
-}
-
-.how-copy__em--support {
-  color: #5a5a5a;
-}
-
-
-.how-copy__nowrap {
-  display: inline-block;
-  white-space: nowrap;
-}
-
-.how-grid::before {
-  border-top: 2px dashed rgba(27, 46, 94, 0.28);
-}
-
-.how-grid::after {
-  animation: howDashFlow 1.15s linear infinite;
-  border-top: 3px dashed #3b6f8f;
-  opacity: 1;
-}
-
-.how-step {
+.how-journey {
   background: transparent;
+  border: 0;
   border-radius: 0;
+  padding: 0;
+}
+
+.how-journey__kicker {
+  color: #1b2e5e;
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  margin: 0 0 16px;
+  text-transform: uppercase;
+}
+
+.how-journey__row {
+  align-items: center;
+  display: flex;
+  gap: 28px;
+  min-width: 0;
+}
+
+.how-journey__steps {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  gap: 26px;
+  list-style: none;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.how-journey-step {
+  background: transparent;
+  border-radius: 10px;
+  align-items: center;
   cursor: pointer;
+  display: flex;
+  flex: 1 1 0;
+  gap: 16px;
+  max-width: 320px;
+  min-width: 0;
   outline: none;
-  padding: 14px;
+  padding-right: 34px;
   position: relative;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
   z-index: 1;
 }
 
-/* Step 2: mustard accent on dark bg */
-.how-step--2 .how-step__number {
-  border-color: #d8a24a;
-  color: #d8a24a;
+.how-journey-step:last-child {
+  padding-right: 0;
 }
 
-/* Step 3: sage on dark bg */
-.how-step--3 .how-step__number {
-  border-color: #7a9a82;
-  color: #7a9a82;
+.how-journey-step:hover,
+.how-journey-step:focus-visible {
+  background: rgba(208, 49, 45, 0.04);
+  box-shadow: 0 8px 18px rgba(27, 46, 94, 0.08);
+  transform: translateY(-3px);
 }
 
-/* Step 4 support style (kept for compatibility) */
-.how-step--4 .how-step__number {
-  background: #f4ede0;
-  border-color: #1b2e5e;
-  color: #1b2e5e;
-}
-
-.how-step__number {
+.how-journey-step__icon {
   align-items: center;
-  background: #fcf7f1;
-  border: 2px solid #e3d7c8;
+  border: 1px solid #dfe5f2;
   border-radius: 999px;
   color: #1b2e5e;
   display: inline-flex;
-  font-size: 16px;
-  font-weight: 800;
-  height: 42px;
+  flex: 0 0 auto;
+  height: 64px;
   justify-content: center;
-  line-height: 1;
-  margin: 0 0 12px;
-  transition:
-    background-color 0.2s ease,
-    color 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.2s ease;
-  width: 42px;
+  width: 64px;
 }
 
-.how-step:hover .how-step__number,
-.how-step:focus-within .how-step__number {
-  background: #f4ede0;
-  border-color: #3b6f8f;
+.how-journey-step--1 .how-journey-step__icon {
+  background: #ebf1fb;
+}
+
+.how-journey-step--2 .how-journey-step__icon {
+  background: #e8f5f3;
+  color: #0f7e75;
+}
+
+.how-journey-step--3 .how-journey-step__icon {
+  background: #fceee2;
+  color: #cc2b24;
+}
+
+.how-journey-step__copy {
+  min-width: 0;
+}
+
+.how-journey-step__title {
   color: #1b2e5e;
-  transform: scale(1.06);
+  font-size: 1.06rem;
+  font-weight: 650;
+  line-height: 1.2;
+  margin: 0 0 5px;
+  white-space: nowrap;
 }
 
-.how-step--2:hover .how-step__number,
-.how-step--2:focus-within .how-step__number {
-  background: #d8a24a;
-  border-color: #d8a24a;
-  color: #fcf7f1;
-}
-
-.how-step--3:hover .how-step__number,
-.how-step--3:focus-within .how-step__number {
-  background: #7a9a82;
-  border-color: #7a9a82;
-  color: #fcf7f1;
-}
-
-.how-step--4:hover .how-step__number,
-.how-step--4:focus-within .how-step__number {
-  background: #1b2e5e;
-  border-color: #1b2e5e;
-  color: #fcf7f1;
-}
-
-.how-step h3 {
-  color: #1b2e5e;
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0 0 8px;
-  transition: color 0.18s ease;
-}
-
-.how-step:hover h3,
-.how-step:focus-within h3 {
-  color: #3b6f8f;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.how-step p {
-  color: #2b2b2b;
-  font-size: 14px;
-  line-height: 1.45;
+.how-journey-step__desc {
+  color: #55627c;
+  font-size: 0.845rem;
+  line-height: 1.4;
   margin: 0;
+  max-width: 210px;
 }
 
-.how-step__hint {
-  color: #1b2e5e;
-  font-size: 0.76rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  margin-top: 8px;
-  opacity: 0.74;
+.how-journey-step__arrow {
+  align-items: center;
+  color: #8693ac;
+  display: inline-flex;
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
-.how-step__nav-hint {
-  color: #3b6f8f;
+.how-journey-step__arrow-icon {
   display: block;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  margin-top: 8px;
-  opacity: 0;
-  transition: opacity 0.2s ease;
 }
 
-.how-step:hover .how-step__nav-hint,
-.how-step:focus-within .how-step__nav-hint {
-  opacity: 1;
+.how-journey-cta {
+  border-left: 1px solid rgba(27, 46, 94, 0.18);
+  display: grid;
+  gap: 10px;
+  min-width: 260px;
+  padding-left: 32px;
+}
+
+.how-journey-cta__question {
+  color: #1b2e5e;
+  font-size: 1.24rem;
+  font-weight: 700;
+  line-height: 1.18;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.how-journey-cta__button {
+  background: #ffffff;
+  border: 1.6px solid #1b2e5e;
+  border-radius: 12px;
+  color: #1b2e5e;
+  min-height: 44px;
+  min-width: 0;
+  padding: 13px 28px;
+  width: fit-content;
+}
+
+.how-journey-cta__button:hover,
+.how-journey-cta__button:focus-visible {
+  background: rgba(27, 46, 94, 0.06);
+  border-color: #1b2e5e;
+  color: #1b2e5e;
+}
+
+.how-journey-cta__free {
+  align-items: center;
+  color: #6b7280;
+  display: inline-flex;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1.35;
+  margin: 0;
 }
 
 .info-grid {
   background: linear-gradient(180deg, #f4ede0 0%, #f4ede0 62%, rgba(244, 237, 224, 0.9) 100%);
   border-top: 1px solid #e3d7c8;
-  padding: 64px 0 64px;
+  padding: 52px 0 52px;
 }
 
 /* Column blocks: warm-sand editorial wrapper */
 .info-grid .info-block {
-  background: #fcf7f1;
-  border: 1px solid #e3d7c8;
-  border-radius: 18px;
-  box-shadow: 0 14px 28px rgba(27, 46, 94, 0.08);
-  padding: 24px 24px 22px;
+  background: #fdf9f3;
+  border: 1px solid #e8ddcf;
+  border-radius: 14px;
+  box-shadow: none;
+  padding: 18px 18px 16px;
   position: relative;
   overflow: hidden;
 }
 
 .info-grid .info-block::before {
-  background: linear-gradient(90deg, transparent, rgba(217, 164, 65, 0.34), transparent);
+  background: linear-gradient(90deg, transparent, rgba(27, 46, 94, 0.2), transparent);
   content: '';
-  height: 2px;
+  height: 1px;
   left: 12px;
   position: absolute;
   right: 12px;
@@ -4842,7 +5306,8 @@ h1 {
 
 .info-grid .section-title {
   color: #1b2e5e;
-  font-size: clamp(1.15rem, 2.2vw, 1.45rem);
+  font-size: clamp(1.06rem, 2vw, 1.28rem);
+  margin-bottom: 8px;
 }
 .info-grid .info-block--warning .section-title {
   border-left-color: #d0312d;
@@ -4858,42 +5323,38 @@ h1 {
 }
 
 .info-grid .info-summary {
-  color: #3b6f8f;
-  font-size: 0.87rem;
-  margin-bottom: 18px;
+  color: #5d6f8c;
+  font-size: 0.81rem;
+  margin-bottom: 10px;
+  line-height: 1.4;
 }
 
 /* Items: light ivory surface with thin accent border */
 .info-grid .info-rows {
-  gap: 10px;
+  gap: 8px;
 }
 
 .info-grid .resource-row {
   align-items: flex-start;
-  background: #fcf7f1;
-  border: 1px solid #e3d7c8;
-  border-bottom: 1px solid #e3d7c8;
-  border-left: 3px solid var(--strip-accent, #1b2e5e);
-  border-radius: 10px;
+  background: #fffdf9;
+  border: 1px solid #e9dfd2;
+  border-radius: 9px;
   display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(0, 1fr) 88px;
-  padding: 12px 14px;
+  gap: 10px;
+  grid-template-columns: 3px minmax(0, 1fr) 88px;
+  min-height: 96px;
+  padding: 10px 12px;
   position: relative;
   transition:
-    transform 0.22s ease,
-    box-shadow 0.22s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
     border-color 0.22s ease,
-    background 0.22s ease;
+    background 0.18s ease;
+  text-decoration: none;
 }
 
 .info-grid .resource-row::after {
-  background: linear-gradient(
-    100deg,
-    rgba(216, 162, 74, 0),
-    rgba(216, 162, 74, 0.26),
-    rgba(139, 111, 246, 0.18)
-  );
+  background: linear-gradient(90deg, rgba(27, 46, 94, 0), rgba(27, 46, 94, 0.04), rgba(27, 46, 94, 0));
   content: '';
   inset: 0;
   opacity: 0;
@@ -4905,9 +5366,9 @@ h1 {
 .info-grid .resource-row:hover,
 .info-grid .resource-row:focus-visible {
   background: #ffffff;
-  border-color: rgba(27, 46, 94, 0.22);
-  box-shadow: 0 10px 22px rgba(27, 46, 94, 0.12);
-  transform: translateY(-4px);
+  border-color: rgba(27, 46, 94, 0.26);
+  box-shadow: 0 7px 16px rgba(27, 46, 94, 0.08);
+  transform: translateY(-2px);
 }
 
 .info-grid .resource-row:hover::after,
@@ -4915,40 +5376,82 @@ h1 {
   opacity: 1;
 }
 
-/* Hide old left accent strip */
 .info-grid .resource-accent {
-  display: none;
+  background: var(--strip-accent, #d0312d);
+  border-radius: 999px;
+  display: inline-flex;
+  height: calc(100% - 6px);
+  margin-top: 3px;
+  min-height: 72px;
 }
 
-.info-grid .resource-title {
-  color: #1b2e5e;
-  font-size: 0.93rem;
-  font-weight: 700;
+.info-grid .resource-main {
+  align-self: center;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
 }
 
-.info-grid .resource-copy {
-  color: #2b2b2b;
-  font-size: 0.81rem;
+.info-grid .resource-tag {
+  align-self: flex-start;
+  border-radius: 999px;
+  color: #315f9e;
+  display: inline-flex;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  padding: 4px 8px;
+  text-transform: uppercase;
+  background: #eaf1fb;
+  border: 1px solid #d7e2f4;
+  width: fit-content;
 }
 
-.info-grid .resource-source {
-  background: transparent;
-  border: 1px solid #e3d7c8;
+.info-grid .info-block--safe .resource-tag {
+  background: #edf5ff;
+  border-color: #d9e7f9;
   color: #3b6f8f;
 }
 
+.info-grid .resource-title {
+  color: #122952;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.info-grid .resource-copy {
+  color: #68758a;
+  font-size: 0.78rem;
+  line-height: 1.42;
+}
+
+.info-grid .resource-source {
+  background: #f7f3ec;
+  border: 1px solid #e7ddcf;
+  color: #7b8597;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+}
+
 .info-grid .resource-media {
+  border-radius: 8px;
+  height: 66px;
+  overflow: hidden;
+  width: 88px;
   transition: transform 0.24s ease;
 }
 
 .info-grid .resource-row:hover .resource-media,
 .info-grid .resource-row:focus-visible .resource-media {
-  transform: translateY(-2px) scale(1.04);
+  transform: translateY(-1px) scale(1.02);
 }
 
 .info-grid .info-block--safe .resource-source {
-  border-color: #e3d7c8;
-  color: #3b6f8f;
+  border-color: #d8e4f7;
+  color: #5478a2;
 }
 
 /* Quick tips: red accent */
@@ -4993,7 +5496,7 @@ h1 {
 .info-grid__inner {
   align-items: start;
   display: grid;
-  gap: 20px;
+  gap: 16px;
   grid-template-columns: 1fr 1fr;
   padding-bottom: 0;
 }
@@ -6227,11 +6730,11 @@ h1 {
 @keyframes heroFloat {
   0%,
   100% {
-    transform: scale(1.9) translateY(0px);
+    transform: scale(1.715) translateY(-6px);
   }
 
   50% {
-    transform: scale(1.9) translateY(-10px);
+    transform: scale(1.715) translateY(-12px);
   }
 }
 
@@ -6337,31 +6840,100 @@ h1 {
     white-space: normal;
   }
 
-  /* Reduce vertical padding on tall sections when narrow */
   .how-it-works {
-    padding: 48px 0;
+    padding: 24px 0 26px;
+  }
+
+  .home-preview {
+    padding-bottom: 0;
+  }
+
+  .home-preview-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-preview-pane + .home-preview-pane {
+    border-left: 0;
+    border-top: 1px solid #e3d7c8;
+  }
+
+  .home-preview-pane--score {
+    justify-items: flex-start;
+  }
+
+  .home-preview-quote {
+    font-size: 0.92rem;
+    line-height: 1.5;
+  }
+
+  .home-preview-score-arc {
+    max-width: 176px;
+  }
+
+  .home-preview-score-svg__value {
+    font-size: 44px;
+  }
+
+  .home-preview-score-svg__unit {
+    font-size: 20px;
   }
 
   .info-grid {
     padding: 44px 0 40px;
   }
 
-  .how-copy {
-    white-space: normal;
+  .how-journey__row {
+    gap: 18px;
   }
 
-  /* How-it-works grid: keep steps connected and evenly distributed */
-  .how-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
+  .how-journey__steps {
+    gap: 20px;
+  }
+
+  .how-journey-step {
+    gap: 12px;
+    max-width: none;
+    padding-right: 26px;
+  }
+
+  .how-journey-step__icon {
+    height: 58px;
+    width: 58px;
+  }
+
+  .how-journey-step__title {
+    font-size: 0.99rem;
+  }
+
+  .how-journey-step__desc {
+    font-size: 0.8rem;
+    max-width: 180px;
+  }
+
+  .how-journey-step__arrow {
+    right: 0;
+  }
+
+  .how-journey-cta {
+    min-width: 220px;
+    padding-left: 20px;
+  }
+
+  .how-journey-cta__question {
+    font-size: 1.02rem;
+  }
+
+  .how-journey-cta__button {
+    min-height: 40px;
+    padding: 10px 18px;
   }
 
   .top-strip {
-    padding: 8px 14px;
+    padding: 1px 10px 0;
   }
 
   .top-strip__inner {
-    border-radius: 20px;
+    border-radius: 10px;
     max-width: 100%;
     min-height: 35px;
     padding: 4px 14px;
@@ -6392,6 +6964,15 @@ h1 {
   }
 
   .learn-scenario-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .learn-hero {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .learn-entry__layout {
     grid-template-columns: 1fr;
   }
 
@@ -6445,6 +7026,10 @@ h1 {
 }
 
 @media (max-width: 760px) {
+  :global(html) {
+    font-size: 15px;
+  }
+
   :global(html),
   :global(body) {
     scroll-snap-type: none;
@@ -6464,7 +7049,7 @@ h1 {
   }
 
   .top-strip {
-    padding: 8px 10px;
+    padding: 1px 8px 0;
   }
 
   .top-strip__inner {
@@ -6477,9 +7062,13 @@ h1 {
     inset: calc(100% + 4px) 16px auto;
   }
 
+  .stats-strip__inner {
+    padding-top: 34px;
+  }
+
   .stats-strip__source {
-    font-size: 0.74rem;
-    padding: 0 16px 18px;
+    font-size: 0.68rem;
+    padding: 0 16px 20px;
   }
 
   .menu-link,
@@ -6508,22 +7097,143 @@ h1 {
   }
 
   .how-it-works {
-    padding: 36px 0;
+    padding: 22px 0 24px;
+  }
+
+  .learn-entry {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .learn-entry__top {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .learn-entry h4 {
+    font-size: 1.02rem;
+  }
+
+  .learn-entry__mission-subline,
+  .learn-mission-row__title,
+  .learn-mission-preview__note {
+    font-size: 0.8rem;
+  }
+
+  .learn-entry__actions {
+    flex-direction: column;
+  }
+
+  .learn-primary,
+  .learn-secondary {
+    width: 100%;
+  }
+
+  .home-preview-pane {
+    align-content: start;
+    min-height: 142px;
+    padding: 12px 14px;
+  }
+
+  .home-preview-quote {
+    font-size: 0.69rem;
+    line-height: 1.65;
+  }
+
+  .home-preview-quote--lead {
+    margin-top: 18px;
+  }
+
+  .home-preview-pane--score {
+    gap: 6px;
+  }
+
+  .home-preview-score-arc {
+    max-width: 146px;
+    transform: translateY(-2px);
+  }
+
+  .home-preview-score-svg__value {
+    font-size: 34px;
+  }
+
+  .home-preview-score-svg__unit {
+    font-size: 16px;
+  }
+
+  .home-preview-score__label {
+    margin-top: -8px;
+  }
+
+  .home-preview-alert {
+    font-size: 0.69rem;
+  }
+
+  .home-preview-cta-btn {
+    margin-top: 8px;
+    min-height: 42px;
+    width: 100%;
   }
 
   .info-grid {
     padding: 36px 0 32px;
   }
 
-  /* how-grid: 1 column on very narrow */
-  .how-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
+  .how-journey__row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
   }
 
-  .how-grid::before,
-  .how-grid::after {
+  .how-journey__steps {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 1fr;
+    padding: 0;
+    width: 100%;
+  }
+
+  .how-journey-step {
+    gap: 10px;
+    max-width: none;
+    padding-right: 0;
+  }
+
+  .how-journey-step__icon {
+    height: 50px;
+    width: 50px;
+  }
+
+  .how-journey-step__title {
+    font-size: 0.98rem;
+  }
+
+  .how-journey-step__desc {
+    font-size: 0.79rem;
+    max-width: none;
+  }
+
+  .how-journey-step__arrow {
     display: none;
+  }
+
+  .how-journey-cta {
+    border-left: 0;
+    border-top: 1px solid rgba(27, 46, 94, 0.18);
+    min-width: 0;
+    padding-left: 0;
+    padding-top: 10px;
+    width: 100%;
+  }
+
+  .how-journey-cta__question {
+    font-size: 1.04rem;
+  }
+
+  .how-journey-cta__button {
+    min-width: 0;
+    width: auto;
   }
 
   .site-footer__links {
@@ -6605,10 +7315,23 @@ h1 {
     flex-direction: row;
     gap: 10px;
     grid-template-columns: unset;
-    max-height: 110px;
+    max-height: none;
     min-height: 84px;
     padding: 8px 10px;
     transform: none;
+  }
+
+  .info-grid .resource-main {
+    align-self: flex-start;
+    gap: 4px;
+  }
+
+  .info-grid .resource-tag {
+    align-self: flex-start;
+    font-size: 0.56rem;
+    margin: 0 0 2px;
+    padding: 3px 7px;
+    position: static;
   }
 
   .info-grid .resource-row:hover,
@@ -6689,6 +7412,64 @@ h1 {
 
   .how-it-works {
     padding: 28px 0;
+  }
+
+  .stats-strip__inner {
+    padding-top: 34px;
+  }
+
+  .home-preview {
+    padding-bottom: 0;
+  }
+
+  .home-preview-pane__kicker {
+    font-size: 0.64rem;
+  }
+
+  .home-preview-quote {
+    font-size: 0.66rem;
+    line-height: 1.6;
+  }
+
+  .home-preview-pane {
+    min-height: 138px;
+    padding: 11px 12px;
+  }
+
+  .home-preview-quote__line-break {
+    height: 0.08em;
+  }
+
+  .home-preview-quote--lead::before {
+    font-size: 102px;
+    left: -4px;
+    top: -30px;
+  }
+
+  .home-preview-score-svg__value {
+    font-size: 32px;
+  }
+
+  .home-preview-score-svg__unit {
+    font-size: 15px;
+  }
+
+  .home-preview-score-arc {
+    max-width: 138px;
+  }
+
+  .home-preview-score__label {
+    margin-top: -6px;
+  }
+
+  .home-preview-cta-btn {
+    min-height: 44px;
+    padding: 10px 16px;
+  }
+
+  .stats-strip__source {
+    font-size: 0.62rem;
+    padding: 0 14px 18px;
   }
 
   .info-grid {
@@ -6776,31 +7557,33 @@ h1 {
     top: -28px;
   }
 
-  /* How it works compact */
-  .how-step {
-    padding: 12px 10px;
+  .how-journey {
+    padding: 0;
   }
 
-  .how-step h3 {
-    margin-bottom: 4px;
-    font-size: 1rem;
+  .how-journey-step {
+    gap: 8px;
+    grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .how-step p {
-    font-size: 0.82rem;
-    line-height: 1.4;
-    margin: 0;
+  .how-journey-step__icon {
+    height: 48px;
+    width: 48px;
   }
 
-  .how-step__number {
-    width: 38px;
-    height: 38px;
-    font-size: 1rem;
-    margin-bottom: 8px;
+  .how-journey-step__title {
+    font-size: 0.94rem;
+    margin-bottom: 3px;
   }
 
-  .how-grid {
-    gap: 12px;
+  .how-journey-step__desc {
+    font-size: 0.75rem;
+    line-height: 1.34;
+  }
+
+  .how-journey-cta__button {
+    min-height: 40px;
+    padding: 8px 14px;
   }
 
   /* Navigation compact */
@@ -6848,6 +7631,10 @@ h1 {
 
 /* 375px: smallest supported width */
 @media (max-width: 375px) {
+  :global(html) {
+    font-size: 14px;
+  }
+
   .container-shell {
     padding: 0 14px;
   }
@@ -6863,7 +7650,7 @@ h1 {
   }
 
   .hero-title-kinetic,
-  .how-copy,
+  .how-journey-step__desc,
   .learn-head-summary,
   .support-head__summary,
   .resource-title,
@@ -6946,3 +7733,4 @@ h1 {
   }
 }
 </style>
+

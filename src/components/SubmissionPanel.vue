@@ -450,7 +450,7 @@ function clearAnalyzeSlowTimer() {
 watch(
   () => props.quickMode,
   (mode) => {
-    if (!mode || !['text', 'pdf', 'link'].includes(mode)) {
+    if (!mode || !['text', 'pdf', 'link', 'abn'].includes(mode)) {
       return
     }
     inputType.value = mode
