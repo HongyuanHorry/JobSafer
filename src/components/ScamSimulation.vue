@@ -2131,6 +2131,8 @@ watch(
   font-size: 0.75rem;
   line-height: 1.34;
   margin: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .coach-mini-card__subline {
@@ -2138,6 +2140,8 @@ watch(
   font-size: 0.72rem;
   line-height: 1.4;
   margin: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .coach-mini-card__subline span {
@@ -5339,5 +5343,4 @@ details[open] > .disclosure-summary .disclosure-chevron {
   }
 }
 </style>
-
 

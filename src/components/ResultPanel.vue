@@ -956,6 +956,7 @@ onBeforeUnmount(() => {
 
 :deep(.flag-highlight) {
   background: #fef08a;
+  box-shadow: 0 0 0 2px rgba(254, 240, 138, 0.65);
   border-radius: 3px;
   color: #111111;
   cursor: help;

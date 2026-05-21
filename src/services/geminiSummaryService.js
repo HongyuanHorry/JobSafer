@@ -11,7 +11,6 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
 const GEMINI_COACH_ENDPOINT = `${API_BASE}/api/gemini/coach-summary`
 
 const MAX_CHARS = {
-  summary: 220,
   topRisk: 120,
   nextAction: 120,
   hesitationInsight: 180,
@@ -146,8 +145,6 @@ function normalizeCoachPayload(raw) {
 
   if (!summary || !topRisk || !nextAction || !tone) return null
 
-  if (summary.length > MAX_CHARS.summary)
-    summary = `${summary.slice(0, MAX_CHARS.summary - 1).trim()}…`
   if (topRisk.length > MAX_CHARS.topRisk) return null
   if (nextAction.length > MAX_CHARS.nextAction) return null
   if (hesitationInsight.length > MAX_CHARS.hesitationInsight) return null
