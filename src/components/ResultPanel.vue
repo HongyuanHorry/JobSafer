@@ -121,6 +121,37 @@ const WARNING_SEVERITY_META = {
   low: { badge: 'LOW', color: '#1F2D6B' },
 }
 
+const FALLBACK_PHRASE_PATTERNS = [
+  {
+    labels: ['unrealistic earnings', 'easy income', 'simple tasks', 'task-based'],
+    pattern:
+      /\b(earn\s+\$?\d+(?:\s*(?:daily|per day|weekly|a day|per week))?|easy money|simple tasks?|daily payout|fast cash|cash|guaranteed income|high income|no experience(?: needed)?|watching videos|reviewing products|reviewing apps|like posts|rating tasks?|commission per task)\b/gi,
+  },
+  {
+    labels: ['payment request', 'payment', 'deposit', 'fee'],
+    pattern:
+      /\b(activate your account|unlock payout|unlock premium|release payment|cash out|transfer|wire|pay|pay now|payment immediately|payment|fee|fees|deposit|refundable deposit|registration fee|onboarding fee|processing fee|upfront|advance fee|top up|recharge|withdrawal fee|verification fee|tax fee)\b/gi,
+  },
+  {
+    labels: ['sensitive', 'identity', 'bank'],
+    pattern:
+      /\b(passport|id card|driver'?s? license|bank details|paypal details|account number|tax file|salary setup|otp|one[- ]?time code|verification code|identity document|photo id|selfie|bsb)\b/gi,
+  },
+  {
+    labels: ['urgent', 'pressure'],
+    pattern:
+      /\b(urgent|immediately|asap|today only|act now|deadline today|limited slots?|exclusive opportunity|selected|shortlisted|congratulations|dear applicant|now|final notice)\b/gi,
+  },
+  {
+    labels: ['link', 'redirect', 'site'],
+    pattern: /\b(https?:\/\/\S+|www\.\S+|telegram|whatsapp|signal|bit\.ly|tinyurl)\b/gi,
+  },
+  {
+    labels: ['recruiter identity', 'verifiable', 'recruiter'],
+    pattern: /\b([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|gmail\.com|outlook\.com|yahoo\.com|recruiter|hiring manager|hr manager)\b/gi,
+  },
+]
+
 function normalizeRiskTier(rawTier) {
   if (rawTier === TIER.CRITICAL) return TIER.CRITICAL
   if (rawTier === TIER.HIGH) return TIER.HIGH
@@ -256,6 +287,26 @@ const matchedPhraseRecords = computed(() => {
       unique.set(key, { phrase, label })
     }
   })
+
+  const source = messagePlainForExcerpt.value
+  if (source) {
+    const labels = warningRows.value.map((row) => row.label.toLowerCase())
+    FALLBACK_PHRASE_PATTERNS.forEach((rule) => {
+      if (!rule.labels.some((label) => labels.some((warningLabel) => warningLabel.includes(label)))) {
+        return
+      }
+
+      Array.from(source.matchAll(rule.pattern)).forEach((match) => {
+        const phrase = String(match[0] || '').trim()
+        if (!phrase) return
+
+        const key = phrase.toLowerCase()
+        if (!unique.has(key)) {
+          unique.set(key, { phrase, label: '' })
+        }
+      })
+    })
+  }
 
   return Array.from(unique.values()).slice(0, 8)
 })
