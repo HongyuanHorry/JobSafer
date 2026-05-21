@@ -276,9 +276,60 @@ const footerProductLinks = [
 ]
 
 const footerLegalLinks = [
-  { label: 'Privacy', href: '#' },
-  { label: 'Terms', href: '#' },
+  {
+    id: 'privacy',
+    label: 'Privacy',
+    title: 'Privacy Notice',
+    summary:
+      'JobSafer is designed to help users recognise scam risks and find recovery guidance without asking for more personal information than necessary.',
+    sections: [
+      {
+        heading: 'What we collect',
+        body:
+          'When you use the scam checker, the text, link, or PDF content you submit may be processed to generate a risk result. We aim to keep collection limited to the information needed for that analysis flow.',
+      },
+      {
+        heading: 'How we use it',
+        body:
+          'Submitted content is used to power scam detection, improve the user experience, and support feature testing or service reliability. Official support links in the site open external services that have their own privacy practices.',
+      },
+      {
+        heading: 'Your choice',
+        body:
+          'Please avoid uploading passwords, bank logins, or unnecessary identity documents. If sensitive information was already shared with a scammer, use the support section to move to bank protection, reporting, or recovery steps.',
+      },
+    ],
+  },
+  {
+    id: 'terms',
+    label: 'Terms',
+    title: 'Terms of Use',
+    summary:
+      'JobSafer provides educational scam-awareness tools and guided next steps, but it does not replace legal, financial, emergency, or mental-health professionals.',
+    sections: [
+      {
+        heading: 'Informational purpose',
+        body:
+          'The results and guidance on this site are intended to help users recognise warning signs and organise their next actions. They should be used as decision support rather than as guaranteed factual determinations.',
+      },
+      {
+        heading: 'User responsibility',
+        body:
+          'You are responsible for checking official sources before acting on job offers, payment requests, identity checks, or links. Do not rely on this site alone for urgent or high-risk situations.',
+      },
+      {
+        heading: 'External services',
+        body:
+          'JobSafer links to third-party resources such as Scamwatch, ACCC, IDCARE, and headspace. Those services operate independently and may update their content, terms, or availability over time.',
+      },
+    ],
+  },
 ]
+const activeFooterLegalId = ref(null)
+const footerLegalPanelRef = ref(null)
+const activeFooterLegal = computed(
+  () => footerLegalLinks.find((item) => item.id === activeFooterLegalId.value) || null,
+)
 
 const supportGuides = [
   {
@@ -1113,6 +1164,22 @@ function handleFooterProductNavigation(item) {
   }
 
   navigateToSection(item.sectionId)
+}
+
+async function toggleFooterLegal(item) {
+  if (!item?.id) return
+  const nextId = activeFooterLegalId.value === item.id ? null : item.id
+  activeFooterLegalId.value = nextId
+
+  if (!nextId) return
+
+  await nextTick()
+  if (!(footerLegalPanelRef.value instanceof HTMLElement)) return
+
+  footerLegalPanelRef.value.scrollIntoView({
+    behavior: 'smooth',
+    block: 'end',
+  })
 }
 
 function goToCheckScam() {
@@ -2882,14 +2949,17 @@ async function unlockSite() {
             <div class="site-footer__col">
               <p class="site-footer__heading">Legal</p>
               <div class="site-footer__link-list">
-                <a
+                <button
                   v-for="item in footerLegalLinks"
-                  :key="item.label"
-                  class="site-footer__link"
-                  :href="item.href"
+                  :key="item.id"
+                  type="button"
+                  class="site-footer__link site-footer__link--button"
+                  :class="{ 'site-footer__link--active': activeFooterLegalId === item.id }"
+                  :aria-expanded="activeFooterLegalId === item.id"
+                  @click="toggleFooterLegal(item)"
                 >
                   <span>{{ item.label }}</span>
-                </a>
+                </button>
               </div>
               <p class="site-footer__meta">(c) 2026 JobSafer</p>
               <div class="site-footer__team" aria-label="Production Team">
@@ -2901,6 +2971,38 @@ async function unlockSite() {
                   loading="lazy"
                 />
               </div>
+            </div>
+          </section>
+
+          <section
+            v-if="activeFooterLegal"
+            ref="footerLegalPanelRef"
+            class="site-footer__legal-panel"
+            :aria-label="`${activeFooterLegal.title} content`"
+          >
+            <div class="site-footer__legal-head">
+              <h3>{{ activeFooterLegal.title }}</h3>
+              <button
+                type="button"
+                class="site-footer__legal-close"
+                aria-label="Close legal content"
+                @click="activeFooterLegalId = null"
+              >
+                Close
+              </button>
+            </div>
+
+            <p class="site-footer__legal-summary">{{ activeFooterLegal.summary }}</p>
+
+            <div class="site-footer__legal-grid">
+              <article
+                v-for="section in activeFooterLegal.sections"
+                :key="section.heading"
+                class="site-footer__legal-card"
+              >
+                <h4>{{ section.heading }}</h4>
+                <p>{{ section.body }}</p>
+              </article>
             </div>
           </section>
         </div>
@@ -6502,6 +6604,11 @@ h1 {
   text-align: left;
 }
 
+.site-footer__link--active {
+  background: rgba(216, 162, 74, 0.15);
+  color: #d8a24a;
+}
+
 .site-footer__link:hover,
 .site-footer__link:focus-visible {
   background: rgba(216, 162, 74, 0.15);
@@ -6537,6 +6644,82 @@ h1 {
   height: 138px;
   object-fit: contain;
   width: auto;
+}
+
+.site-footer__legal-panel {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  display: grid;
+  gap: 18px;
+  margin-top: 28px;
+  padding: 24px;
+}
+
+.site-footer__legal-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.site-footer__legal-head h3 {
+  color: #f8f4ed;
+  font-size: clamp(1.22rem, 2vw, 1.6rem);
+  line-height: 1.15;
+  margin: 0;
+}
+
+.site-footer__legal-close {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: #f2efe8;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  min-height: 38px;
+  padding: 8px 14px;
+}
+
+.site-footer__legal-close:hover,
+.site-footer__legal-close:focus-visible {
+  border-color: rgba(216, 162, 74, 0.6);
+  color: #d8a24a;
+}
+
+.site-footer__legal-summary {
+  color: #f2efe8;
+  line-height: 1.65;
+  margin: 0;
+  max-width: 900px;
+}
+
+.site-footer__legal-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.site-footer__legal-card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 18px;
+}
+
+.site-footer__legal-card h4 {
+  color: #f8f4ed;
+  font-size: 0.98rem;
+  margin: 0 0 10px;
+}
+
+.site-footer__legal-card p {
+  color: rgba(242, 239, 232, 0.82);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  margin: 0;
 }
 
 @keyframes scanSweep {
@@ -6855,6 +7038,10 @@ h1 {
   .home-preview-pane + .home-preview-pane {
     border-left: 0;
     border-top: 1px solid #e3d7c8;
+  }
+
+  .site-footer__legal-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .home-preview-pane--score {
@@ -7237,6 +7424,19 @@ h1 {
   }
 
   .site-footer__links {
+    grid-template-columns: 1fr;
+  }
+
+  .site-footer__legal-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .site-footer__legal-close {
+    align-self: flex-start;
+  }
+
+  .site-footer__legal-grid {
     grid-template-columns: 1fr;
   }
 
@@ -7733,4 +7933,3 @@ h1 {
   }
 }
 </style>
-
